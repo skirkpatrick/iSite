@@ -1,4 +1,5 @@
 #include<cstdio>    //fscanf can be useful if sites are read as strings
+#include<cstdlib>   //for atoi
 #include<iostream>  //for input and output
 #include<fstream>   //for file input and output
 #include<utility>   //for std::pair
@@ -85,6 +86,42 @@ int components(Graph& graph)
     return connected_components(graph, &c[0]);//this is an easier way I found
 }
 
+//Stores input parameters
+struct parameters
+{
+    string infile;
+    double prob_loss;
+    double prob_asym;
+    int end_order;
+    int iterations;
+} param;
+
 int main(int argc, char* argv[])
 {
+    if (argc!=6)
+    {
+        cerr<<"Usage: ./iSite <seed-graph> <probability of loss> "
+                "<probability of assymetry> <end order> <iterations>"<<endl;
+        exit(1);
+    }
+
+    Graph graph;                        //Protein network
+    param.infile=argv[1];               //Seed graph
+    param.prob_loss=atof(argv[2]);      //Probability of loss of redundancy
+    param.prob_asym=atof(argv[3]);      //Probability of assymetry
+    param.end_order=atoi(argv[4]);      //Order at which to stop
+    param.iterations=atoi(argv[5]);     //Number of times to run algorithm
+
+    ifstream infile(param.infile.c_str());
+    if (!infile)
+    {
+        cerr<<"Error opening specified seed graph!"<<endl;
+        exit(1);
+    }
+
+
+
+
+
+    infile.close();
 }
