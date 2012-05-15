@@ -171,20 +171,23 @@ int main(int argc, char* argv[])
     string v1,v2;
 
     //Building seed graph
-    while (!(infile>>v1>>v2).eof())
-    {
-        if (nodes[v1]==0)
-            nodes[v1]=++counter;
-        if (nodes[v2]==0)
-            nodes[v2]=++counter;
-    }
+    while(!(infile>>v1>>v2).eof())
+	{
+		if(nodes[v1]==0)
+		{
+			nodes[v1]=++count;
+			add_vertex(graph);
+		}
+		if(nodes[v2]==0)
+		{
+			nodes[v2]=++count;
+			add_vertex(graph);
+		}
 
-
-
-
-
-
-
+		add_edge(nodes[v1],nodes[v2],graph);
+		//loop to add 1 to all member vectices' age.
+		
+	}
 
     while (num_vertices(graph)!=param.end_order)
     {
@@ -200,7 +203,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: result"<<endl;
         exit(1);
     }
-
+	
     outfile<<param.prob_loss<<" ";
     outfile<<param.prob_asym<<" ";
     outfile<<num_vertices(graph)<<" ";
