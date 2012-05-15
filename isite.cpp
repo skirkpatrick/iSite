@@ -4,6 +4,8 @@
 #include<fstream>   //for file input and output
 #include<utility>   //for std::pair
 #include<vector>    //for std::vector
+#include<map>       //for std::map
+#include<cstring>   //for std::string
 
 #include<boost/graph/adjacency_list.hpp>
 #include<boost/graph/connected_components.hpp>
@@ -11,15 +13,24 @@
 using namespace std;
 using namespace boost;
 
-struct edgesite
+
+typedef adjacency_list_traits<listS,vecS,undirectedS>::edge_descriptor edge_descriptor;
+typedef adjacency_list_traits<listS,vecS,undirectedS>::vertex_descriptor vertex_descriptor;
+
+struct isite
 {
-    pair<int,int> site1;
-    pair<int,int> site2;
+    vector<edge_descriptor> edges;
+    unsigned int age;
+};
+
+struct vertexsites
+{
+    vector<isite> sites;
 };
 
 
 
-typedef adjacency_list<listS, vecS, undirectedS, no_property, edgesite> Graph;
+typedef adjacency_list<listS, vecS, undirectedS, vertexsites> Graph;
 
 /*
 adjacency_list<OutEdgeList,         <-listS=time, vecS=space
@@ -86,6 +97,8 @@ int components(Graph& graph)
     return connected_components(graph, &c[0]);//this is an easier way I found
 }
 
+
+
 //Stores input parameters
 struct parameters
 {
@@ -95,6 +108,40 @@ struct parameters
     int end_order;
     int iterations;
 } param;
+
+pair<int, int> duplication(Graph& graph)
+{
+    srand(time(NULL));
+    int parent = (int)((float)rand()/(RAND_MAX)*(boost::num_vertices(graph)-1) );
+//the graph -1 and node +1 make it so the range is between 1 to last_node 
+    parent+=1;
+    cout << "parent: " << parent << endl;
+
+    //get a new vertex
+    Graph::vertex_descriptor v_description = *child;
+    child = boost::add_vertex(graph);
+    cout << "added vertex: " << *child << endl;
+
+    //give all of the selectedNode edges to the cloned node
+    out_edge_iterator oei, oeiend;
+    for( tie(oei, oeiend) = out_edges(parent, graph); oei != oeiend; ++oei )
+    {
+        boost::add_edge(target(*oei,graph), *child, graph);
+        cout << "adding: " << target(*oei,graph) << " to: " << *child << endl;
+    }
+//return parent, child
+return pair<parent, *child>
+}
+
+//Perform iSite algorithm
+void isite(Graph& graph)
+{
+    pair<int,int> vertices;
+    vertices=duplication(graph);
+
+    
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -119,9 +166,54 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
+    map<string,int> nodes;
+    int counter=0;
+    string v1,v2;
+
+    //Building seed graph
+    while (!(infile>>v1>>v2).eof())
+    {
+        if (nodes[v1]==0)
+            nodes[v1]=++counter;
+        if (nodes[v2]==0)
+            nodes[v2]=++counter;
+    }
 
 
 
 
+
+
+
+
+    while (num_vertices(graph)!=param.end_order)
+    {
+        
+    }
+
+
+
+    //Output
+    ofstream outfile("result");
+    if (!outfile)
+    {
+        cerr<<"Error opening output file: result"<<endl;
+        exit(1);
+    }
+
+    outfile<<param.prob_loss<<" ";
+    outfile<<param.prob_asym<<" ";
+    outfile<<num_vertices(graph)<<" ";
+    outfile<<num_edges(graph)<<" ";
+    int triangles=triangles(graph);
+    int triples=triples(graph);
+    outfile<<triangles<<" ";
+    outfile<<triples<<" ";
+    outfile<<(3*triangles)/triples<<" ";
+    outifle<<components(graph);
+
+
+
+    outfile.close();
     infile.close();
 }
