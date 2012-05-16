@@ -22,6 +22,13 @@ struct isite
 {
     vector<edge_descriptor> edges;
     unsigned int age;
+    isite() : age(0), edges()
+    {
+    }
+    isite(edge_descriptor e, unsigned int a) : age(a)
+    {
+        edges.push_back(e);
+    }
 };
 
 struct vertexsites
@@ -110,7 +117,7 @@ struct parameters
     int iterations;
 } param;
 
-pair<Graph::vertex_descriptor, Graph::vertex_descriptor> duplication(Graph& graph)
+pair<Graph::vertex_descriptor, Graph::vertex_descriptor> duplicate(Graph& graph)
 {
     srand(time(NULL));
     int parent = (int)((float)rand()/(RAND_MAX)*(boost::num_vertices(graph)-1) );
@@ -124,7 +131,7 @@ pair<Graph::vertex_descriptor, Graph::vertex_descriptor> duplication(Graph& grap
     Graph::vertex_descriptor child_description = *child;
     cout << "added vertex: " << *child << endl;
 
-//give all of the parent edges to the child 
+//give all of the parent edges to the child
     out_edge_iterator oei, oeiend;
     for( tie(oei, oeiend) = out_edges(parent, graph); oei != oeiend; ++oei )
     {
@@ -140,11 +147,21 @@ pair<Graph::vertex_descriptor, Graph::vertex_descriptor> duplication(Graph& grap
     int numSites = graph[parent_description].sites.size();
     for( int i=0; i < numSites; i++)
     {
+    /*
         isite* newSite = new isite(); 
         newSite->age = 0;
         copy( graph[parent_description].sites[i].edges.begin(), graph[parent_description].sites[i].edges.end(), newSite->edges.begin() ); 
         graph[child_description].sites.push_back(*newSite);
+        */
+        isite newSite;
+        newSite.age=0;
+        newSite.edges.insert(newSite.edges.begin(),graph[parent_description].sites[i].edges.begin(),graph[parent_description].sites[i].edges.end());
+        //If we'd rather use copy() instead of insert, we need to first do a
+            //resize() or we get a segfault
+
+        graph[child_description].sites.push_back(newSite);
 //SHOULD DO MEMORY CLEAN UP HERE???
+    //Got rid of the new operator. No worries.
     }
 
 //return parent, child
@@ -154,10 +171,10 @@ return tmpPair;
 }
 
 //Perform iSite algorithm
-void isite(Graph& graph)
+void duplication(Graph& graph)
 {
     pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
-    vertices=duplication(graph);
+    vertices=duplicate(graph);
 
     
 }
@@ -206,23 +223,14 @@ int main(int argc, char* argv[])
     int counter=0;
     string v1,v2;
 
-    vertex_iterator vi;
     //Building seed graph
     while(!(infile>>v1>>v2).eof())
 	{
+        //Create nodes if don't exist
 		if(nodes[v1]==0)
 		{
 			nodes[v1]=++counter;
             add_vertex(graph);
-/*
-in this area we need to add a loop that goes over each edge that is attached to this vertex
-and add it to the edges vector in the descriptor struct
-because right now, it seems like the vertices would be created with empty descriptions - so no isites attached to them
-			vi = add_vertex(graph);
-            Graph::vertex_descriptor vi_description = *vi;
-            loop here - add a site for each edge found
-            graph[vi_description].sites
-*/
 		}
 		if(nodes[v2]==0)
 		{
@@ -230,15 +238,47 @@ because right now, it seems like the vertices would be created with empty descri
 			add_vertex(graph);
 		}
 
-		add_edge(nodes[v1],nodes[v2],graph);
-		//loop to add 1 to all member vectices' age.
+        //Add edge
+        Graph::vertex_descriptor vd1 = vertex(nodes[v1],graph);
+        Graph::vertex_descriptor vd2 = vertex(nodes[v2],graph);
+        Graph::edge_descriptor ed;
+        bool temp_bool;
+
+        tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
+
+        //Add iSite
+        graph[vd1].sites.push_back(isite(ed,0));
+        graph[vd2].sites.push_back(isite(ed,0));
 		
 	}
 
-    while (num_vertices(graph)!=param.end_order)
+#ifdef DEBUG
+    vertex_iterator vi, viend;
+    for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
     {
-        
+        cout<<*vi;
+        out_edge_iterator oei, oeiend;
+        for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
+            cout<<"->"<<target(*oei,graph);
+        cout<<endl;
     }
+#endif
+
+    while (num_vertices(graph)!=param.end_order+1)
+    {
+        duplication(graph);
+    }
+
+#ifdef DEBUG
+    for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
+    {
+        cout<<*vi;
+        out_edge_iterator oei, oeiend;
+        for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
+            cout<<"->"<<target(*oei,graph);
+        cout<<endl;
+    }
+#endif
 
 
 
@@ -252,13 +292,13 @@ because right now, it seems like the vertices would be created with empty descri
 	
     outfile<<param.prob_loss<<" ";
     outfile<<param.prob_asym<<" ";
-    outfile<<num_vertices(graph)<<" ";
+    outfile<<num_vertices(graph)-1<<" ";
     outfile<<num_edges(graph)<<" ";
     int numTriangles=triangles(graph);
     int numTriples=countTriples(graph);
     outfile<<numTriangles<<" ";
     outfile<<numTriples<<" ";
-    outfile<<(3*numTriangles)/numTriples<<" ";
+    outfile<<(double)(3*numTriangles)/numTriples<<" ";
     outfile<<components(graph);
 
 
