@@ -1,5 +1,6 @@
 #include<cstdio>    //fscanf can be useful if sites are read as strings
 #include<cstdlib>   //for atoi
+#include <time.h>   //for random number generation
 #include<iostream>  //for input and output
 #include<fstream>   //for file input and output
 #include<utility>   //for std::pair
@@ -120,23 +121,24 @@ struct parameters
 pair<Graph::vertex_descriptor, Graph::vertex_descriptor> duplicate(Graph& graph)
 {
     srand(time(NULL));
-    int parent = (int)((float)rand()/(RAND_MAX)*(boost::num_vertices(graph)-1) );
+//    int parent = (int)((float)rand()/(RAND_MAX)*(boost::num_vertices(graph)-1) );
+    int parent = rand() % (num_vertices(graph)-1);
 //the (graph -1) and (node +1) make it so the range is between 1 to last_node 
     parent+=1;
-    cout << "parent: " << parent << endl;
+    cout << "node chosen for duplication (parent): " << parent << endl;
 
 //get a new vertex
     vertex_iterator child;
     child = boost::add_vertex(graph);
     Graph::vertex_descriptor child_description = *child;
-    cout << "added vertex: " << *child << endl;
+    cout << "duplicated node (child): " << *child << endl;
 
 //give all of the parent edges to the child
     out_edge_iterator oei, oeiend;
     for( tie(oei, oeiend) = out_edges(parent, graph); oei != oeiend; ++oei )
     {
         boost::add_edge(target(*oei,graph), *child, graph);
-        cout << "adding: " << target(*oei,graph) << " to: " << *child << endl;
+        cout << "adding: " << target(*oei,graph) << " to child: " << *child << endl;
     }
 
 //get vertex_descriptor to parent node
@@ -253,6 +255,7 @@ int main(int argc, char* argv[])
 	}
 
 #ifdef DEBUG
+    cout << "origional graph" << endl;
     vertex_iterator vi, viend;
     for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
     {
@@ -264,12 +267,15 @@ int main(int argc, char* argv[])
     }
 #endif
 
+//possibility of endless loop here on bad user input, should use '<' instead of '!='
     while (num_vertices(graph)!=param.end_order+1)
     {
         duplication(graph);
+        addAge(graph);
     }
 
 #ifdef DEBUG
+    cout << "graph after duplication of nodes to end_order" << endl;
     for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
     {
         cout<<*vi;
@@ -280,6 +286,17 @@ int main(int argc, char* argv[])
     }
 #endif
 
+#ifdef DEBUG
+    cout << "listing of all nodes. For each node - the isite and the age of that site" << endl;
+    for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
+    {
+        Graph::vertex_descriptor vd1 = *vi; 
+        cout<<"node: " << *vi << endl;
+        for (int i=0; i != graph[vd1].sites.size(); i++)
+            cout<<"site: "<< i << " num_edges to site: " << graph[vd1].sites[i].edges.size() << " age of site: " << graph[vd1].sites[i].age << endl;
+        cout<<endl;
+    }
+#endif
 
 
     //Output
