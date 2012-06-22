@@ -35,6 +35,7 @@ struct isite
 struct vertexsites
 {
     vector<isite> sites;
+    map<edge_descriptor,int> edgeToSite;
 };
 
 typedef adjacency_list<listS, vecS, undirectedS, vertexsites> Graph;
@@ -151,16 +152,21 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
         for (int j=0; j < siteEdges; j++)
         {
             
-            Graph::edge_descriptor ed;
+            Graph::edge_descriptor ed, ed2;
             bool temp_bool;
             Graph::vertex_descriptor vd = edgeDest(parent_description,
                 graph[parent_description].sites[i].edges[j], graph);
 
             tie(ed, temp_bool) = add_edge(child_description,vd,graph);
 
+            //update child iSite
             newSite.edges.push_back(ed);
-            //need to add edge descriptor to other vertex's iSite
-                //possibly use map instead of vector for iSites
+            graph[child_description].edgeToSite[ed]=i;
+
+            //update other node's iSite
+            tie(ed2, temp_bool) = edge(parent_description, vd, graph);
+            graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
+            graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
         }
 
         graph[child_description].sites.push_back(newSite);
@@ -297,7 +303,9 @@ int main(int argc, char* argv[])
 
         //Add iSite
         graph[vd1].sites.push_back(isite(ed,0));
+        graph[vd1].edgeToSite[ed]=graph[vd1].sites.size()-1;
         graph[vd2].sites.push_back(isite(ed,0));
+        graph[vd2].edgeToSite[ed]=graph[vd2].sites.size()-1;
 		
 	}
 
