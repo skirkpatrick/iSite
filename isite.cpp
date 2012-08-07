@@ -119,6 +119,7 @@ struct parameters
     unsigned int iterations;
 } param;
 
+//Given an edge and a vertex, returns the vertex on the opposite end
 Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
                                   const Graph::edge_descriptor ed,
                                   const Graph& graph)
@@ -167,6 +168,10 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
             tie(ed2, temp_bool) = edge(parent_description, vd, graph);
             graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
             graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
+
+            //self-loop (not yet implemented)
+                //may need to be at beginning of loop
+            if (target(ed, graph)==source(ed, graph));
         }
 
         graph[child_description].sites.push_back(newSite);
@@ -214,7 +219,112 @@ void duplication(Graph& graph)
     pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
     vertices=duplicate(graph);
 
-    
+    //prob_asym
+    int numSites = graph[vertices.first].sites.size();
+
+#ifdef DEBUG
+    cout<<"numSites: "<<numSites<<endl;
+#endif
+
+    vector<bool> asym(numSites);
+    for (int i=0; i<numSites; i++)
+    {
+        Graph::vertex_descriptor vertexLoss;
+
+        int rand_res = ((double) rand()) / RAND_MAX;
+        if (rand_res <= param.prob_asym) //Parent loss
+        {
+#ifdef DEBUG
+            cout<<"prob_asym result: Parent"<<endl;
+#endif
+            vertexLoss = vertices.first;
+            //asym[i] = true;
+        }
+        else //Child loss
+        {
+#ifdef DEBUG
+            cout<<"prob_asym result: Child"<<endl;
+#endif
+            vertexLoss = vertices.second;
+        }
+
+        //prob_loss
+        int numEdges = graph[vertexLoss].sites[i].edges.size();
+        for (int j=0; j<numEdges; j++)
+        {
+#ifdef DEBUG
+            cout<<"numEdges: "<<numEdges<<endl;
+#endif
+            rand_res = ((double) rand()) / RAND_MAX;
+            if (rand_res <= param.prob_loss) //Edge is lost
+            {
+#ifdef DEBUG
+                cout<<"prob_loss: Yes"<<endl;
+#endif
+                Graph::edge_descriptor edgeLoss;
+                edgeLoss = graph[vertexLoss].sites[i].edges[j];
+
+                //Remove from vertexLoss
+                graph[vertexLoss].edgeToSite.erase(edgeLoss);
+                graph[vertexLoss].sites[i].edges.erase(
+                    graph[vertexLoss].sites[i].edges.begin()+j);
+
+                //Update connected vertex
+                Graph::vertex_descriptor connectedVertex;
+                connectedVertex = edgeDest(vertexLoss, edgeLoss, graph);
+                int connectedSite = graph[connectedVertex].edgeToSite[edgeLoss];
+                int connectedSiteSize = graph[connectedVertex].sites[connectedSite].edges.size();
+                int k;
+                for (k=0; k<connectedSiteSize; k++)
+                {
+                    if (graph[connectedVertex].sites[connectedSite].edges[k]==edgeLoss)
+                        break;
+                }
+                graph[connectedVertex].edgeToSite.erase(edgeLoss);
+                graph[connectedVertex].sites[connectedSite].edges.erase(
+                    graph[connectedVertex].sites[connectedSite].edges.begin()+k);
+
+                //If connected iSite is empty, remove it
+                if (graph[connectedVertex].sites[connectedSite].edges.size()==0
+                    && connectedVertex != vertices.first
+                    && connectedVertex != vertices.second)
+                {
+                    graph[connectedVertex].sites.erase(
+                        graph[connectedVertex].sites.begin() + connectedSite);
+                }
+
+                remove_edge(edgeLoss, graph);
+                j--;
+                numEdges--;
+            }
+#ifdef DEBUG
+            else cout<<"prob_loss: No"<<endl;
+#endif
+        }//cycle through edges
+
+    }//cycle through iSites
+
+    //Check parent and child for empty iSites
+    int j=numSites;
+    for (int i=0; i<j; i++)
+        if (graph[vertices.first].sites[i].edges.size()==0)
+        {
+            graph[vertices.first].sites.erase(
+                graph[vertices.first].sites.begin() + i);
+            i--;
+            j--;
+        }
+    for (int i=0; i<numSites; i++)
+        if (graph[vertices.second].sites[i].edges.size()==0)
+        {
+            graph[vertices.second].sites.erase(
+                graph[vertices.second].sites.begin() + i);
+            i--;
+            numSites--;
+        }
+
+    //If node has no iSites (and therefore no edges), delete it
+    /******************implement here***********************/
 }
 
 void addAge(Graph& graph)
