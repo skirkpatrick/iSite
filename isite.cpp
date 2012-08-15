@@ -73,7 +73,7 @@ int triangles(Graph& graph)
         for(tie(adji,adjiend)=adjacent_vertices(*vi,graph);adji!=adjiend;adji++)
         {
             //Check for edges between vertices adjacent to vi aka triangle
-            for (adji2=adji/*works with self-loops?*/; adji2!=adjiend; ++adji2)
+            for (adji2=adji; adji2!=adjiend; ++adji2)
             {
                 if (edge(*adji, *adji2, graph).second)
                 numTriangles++;
@@ -104,7 +104,7 @@ int countTriples(Graph& graph)
 int components(Graph& graph)
 {
     vector<int> c(num_vertices(graph));
-    return connected_components(graph, &c[0]);//this is an easier way I found
+    return connected_components(graph, &c[0]);
 }
 
 
@@ -129,7 +129,6 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 
 pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
 {
-    //srand(time(NULL));
     int parent = rand() % (num_vertices(graph)-1);
 //the (graph -1) and (node +1) make it so the range is between 1 to last_node 
     parent+=1;
@@ -176,36 +175,6 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
 
         graph[child_description].sites.push_back(newSite);
     }
-
-
-/***********Antiquated: replaced by above code
-
-    //give all of the parent edges to the child
-    out_edge_iterator oei, oeiend;
-    for( tie(oei, oeiend) = out_edges(parent, graph); oei != oeiend; ++oei )
-    {
-        boost::add_edge(target(*oei,graph), *child, graph);
-        cout << "adding: " << target(*oei,graph)<<" to child: "<<*child<<endl;
-    }
-
-    //get vertex_descriptor to parent node
-    tie(oei, oeiend) = out_edges(parent, graph);
-    Graph::vertex_descriptor parent_description = source(*oei, graph);
-
-    //clone each of the parent's isites and give it to the child
-    int numSites = graph[parent_description].sites.size();
-    for( int i=0; i < numSites; i++)
-    {
-        isite newSite;
-        newSite.age=0;
-        newSite.edges.insert(newSite.edges.begin(),
-            graph[parent_description].sites[i].edges.begin(),
-            graph[parent_description].sites[i].edges.end());
-
-        graph[child_description].sites.push_back(newSite);
-    }
-
-***********************************************/
 
     //return parent, child
     pair<Graph::vertex_descriptor, Graph::vertex_descriptor> tmpPair;
