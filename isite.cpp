@@ -129,7 +129,7 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 
 pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
 {
-    srand(time(NULL));
+    //srand(time(NULL));
     int parent = rand() % (num_vertices(graph)-1);
 //the (graph -1) and (node +1) make it so the range is between 1 to last_node 
     parent+=1;
@@ -226,12 +226,12 @@ void duplication(Graph& graph)
     cout<<"numSites: "<<numSites<<endl;
 #endif
 
-    vector<bool> asym(numSites);
+    //vector<bool> asym(numSites);
     for (int i=0; i<numSites; i++)
     {
         Graph::vertex_descriptor vertexLoss;
 
-        int rand_res = ((double) rand()) / RAND_MAX;
+        double rand_res = ((double) rand()) / (double)RAND_MAX;
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
@@ -255,7 +255,7 @@ void duplication(Graph& graph)
 #ifdef DEBUG
             cout<<"numEdges: "<<numEdges<<endl;
 #endif
-            rand_res = ((double) rand()) / RAND_MAX;
+            rand_res = ((double) rand()) / (double)RAND_MAX;
             if (rand_res <= param.prob_loss) //Edge is lost
             {
 #ifdef DEBUG
@@ -387,6 +387,7 @@ int main(int argc, char* argv[])
     map<string,int> nodes;
     int counter=0;
     string v1,v2;
+    srand(time(NULL));
 
     //Building seed graph
     while(!(infile>>v1>>v2).eof())
