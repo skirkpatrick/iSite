@@ -226,7 +226,6 @@ void duplication(Graph& graph)
     cout<<"numSites: "<<numSites<<endl;
 #endif
 
-    //vector<bool> asym(numSites);
     for (int i=0; i<numSites; i++)
     {
         Graph::vertex_descriptor vertexLoss;
@@ -238,7 +237,6 @@ void duplication(Graph& graph)
             cout<<"prob_asym result: Parent"<<endl;
 #endif
             vertexLoss = vertices.first;
-            //asym[i] = true;
         }
         else //Child loss
         {
