@@ -445,8 +445,8 @@ int main(int argc, char* argv[])
     {
         while (num_vertices(graph)<param.end_order+1)
         {
-            duplication(graph);
             addAge(graph);
+            duplication(graph);
 #ifdef DEBUG
             cout << "graph during algorithm" << endl;
             for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
