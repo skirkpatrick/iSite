@@ -12,12 +12,13 @@
 
 #include<boost/graph/adjacency_list.hpp>
 #include<boost/graph/connected_components.hpp>
+#include<boost/property_map/property_map.hpp>
 
 using namespace std;
 using namespace boost;
 
-typedef adjacency_list_traits<listS,vecS,undirectedS>::edge_descriptor edge_descriptor;
-typedef adjacency_list_traits<listS,vecS,undirectedS>::vertex_descriptor vertex_descriptor;
+typedef adjacency_list_traits<listS,listS,undirectedS>::edge_descriptor edge_descriptor;
+typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex_descriptor;
 
 struct isite
 {
@@ -38,7 +39,8 @@ struct vertexsites
     map<edge_descriptor,int> edgeToSite;
 };
 
-typedef adjacency_list<listS, vecS, undirectedS, vertexsites> Graph;
+typedef adjacency_list<listS, listS, undirectedS,
+                        property<vertex_index_t, int, vertexsites> > Graph;
 
 typedef boost::graph_traits<Graph>::out_edge_iterator out_edge_iterator;
 
@@ -55,6 +57,7 @@ adjacency_list<OutEdgeList,         <-listS=time, vecS=space
 typedef graph_traits<Graph>::vertex_iterator vertex_iterator;
 typedef graph_traits<Graph>::edge_iterator edge_iterator;
 typedef graph_traits<Graph>::adjacency_iterator AdjIter;
+typedef property_map<Graph, vertex_index_t>::type vimap;
 
 
 /*
@@ -103,8 +106,8 @@ int countTriples(Graph& graph)
 */
 int components(Graph& graph)
 {
-    vector<int> c(num_vertices(graph));
-    return connected_components(graph, &c[0]);
+    dummy_property_map p;
+    return connected_components(graph, p);
 }
 
 
@@ -119,6 +122,9 @@ struct parameters
     unsigned int iterations;
 } param;
 
+//For vertex index mapping
+unsigned int counter;
+
 //Given an edge and a vertex, returns the vertex on the opposite end
 Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
                                   const Graph::edge_descriptor ed,
@@ -127,19 +133,17 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
     return (vd==source(ed, graph)) ? target(ed, graph) : source(ed, graph);
 }
 
-pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
+pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
+                                                               vimap& indexmap)
 {
-    int parent = rand() % (num_vertices(graph)-1);
-//the (graph -1) and (node +1) make it so the range is between 1 to last_node 
-    parent+=1;
+    int parent = rand() % (num_vertices(graph));
     cout << "node chosen for duplication (parent): " << parent << endl;
     Graph::vertex_descriptor parent_description = vertex(parent, graph);
 
     //get a new vertex
-    vertex_iterator child;
-    child = boost::add_vertex(graph);
-    Graph::vertex_descriptor child_description = *child;
-    cout << "duplicated node (child): " << *child << endl;
+    Graph::vertex_descriptor child_description = add_vertex(graph);
+    indexmap(child_description) = counter++;
+    cout << "duplicated node (child): " << indexmap(child_description) << endl;
 
     //copy edges and isites
     int numSites = graph[parent_description].sites.size();
@@ -183,10 +187,10 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph)
 }
 
 //Perform iSite algorithm
-void duplication(Graph& graph)
+void duplication(Graph& graph, vimap& indexmap)
 {
     pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
-    vertices=duplicate(graph);
+    vertices=duplicate(graph, indexmap);
 
     //prob_asym
     int numSites = graph[vertices.first].sites.size();
@@ -258,6 +262,12 @@ void duplication(Graph& graph)
                 {
                     graph[connectedVertex].sites.erase(
                         graph[connectedVertex].sites.begin() + connectedSite);
+
+                    //If connected iSite is empty, remove it
+                    if (graph[connectedVertex].sites.empty())
+                    {
+                        //remove_vertex(connectedVertex, graph);
+                    }
                 }
 
                 remove_edge(edgeLoss, graph);
@@ -291,7 +301,14 @@ void duplication(Graph& graph)
         }
 
     //If node has no iSites (and therefore no edges), delete it
-    /******************implement here***********************/
+    if (graph[vertices.first].sites.empty())
+    {
+        //remove_vertex(vertices.first, graph);
+    }
+    if (graph[vertices.second].sites.empty())
+    {
+        //remove_vertex(vertices.second, graph);
+    }
 }
 
 void addAge(Graph& graph)
@@ -321,6 +338,7 @@ int main(int argc, char* argv[])
     }
 
     Graph graph;                        //Protein network
+    vimap indexmap = get(vertex_index, graph);
     param.infile=argv[1];               //Seed graph
     param.prob_loss=atof(argv[2]);      //Probability of loss of redundancy
     param.prob_asym=atof(argv[3]);      //Probability of assymetry
@@ -352,28 +370,28 @@ int main(int argc, char* argv[])
     }
 
     map<string,int> nodes;
-    int counter=0;
+    counter=0;
     string v1,v2;
     srand(time(NULL));
 
     //Building seed graph
     while(!(infile>>v1>>v2).eof())
-	{
+    {
         //Create nodes if don't exist
-		if(nodes[v1]==0)
-		{
-			nodes[v1]=++counter;
-            add_vertex(graph);
-		}
-		if(nodes[v2]==0)
-		{
-			nodes[v2]=++counter;
-			add_vertex(graph);
-		}
+        if(nodes[v1]==0)
+        {
+            nodes[v1]=counter+1;
+            indexmap(add_vertex(graph))=counter++;
+        }
+        if(nodes[v2]==0)
+        {
+            nodes[v2]=counter+1;
+            indexmap(add_vertex(graph))=counter++;
+        }
 
         //Add edge
-        Graph::vertex_descriptor vd1 = vertex(nodes[v1],graph);
-        Graph::vertex_descriptor vd2 = vertex(nodes[v2],graph);
+        Graph::vertex_descriptor vd1 = vertex(nodes[v1]-1,graph);
+        Graph::vertex_descriptor vd2 = vertex(nodes[v2]-1,graph);
         Graph::edge_descriptor ed;
         bool temp_bool;
 
@@ -385,17 +403,17 @@ int main(int argc, char* argv[])
         graph[vd2].sites.push_back(isite(ed,0));
         graph[vd2].edgeToSite[ed]=graph[vd2].sites.size()-1;
 		
-	}
+    }
 
 #ifdef DEBUG
     cout << "original graph" << endl;
     vertex_iterator vi, viend;
     for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
     {
-        cout<<*vi;
+        cout<<indexmap(*vi);
         out_edge_iterator oei, oeiend;
         for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
-            cout<<"->"<<target(*oei,graph);
+            cout<<"->"<<indexmap(target(*oei,graph));
         cout<<endl;
     }
 #endif
@@ -410,18 +428,18 @@ int main(int argc, char* argv[])
 
     while (param.iterations--)
     {
-        while (num_vertices(graph)<param.end_order+1)
+        while (num_vertices(graph)<param.end_order)
         {
             addAge(graph);
-            duplication(graph);
+            duplication(graph, indexmap);
 #ifdef DEBUG
             cout << "graph during algorithm" << endl;
             for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
             {
-                cout<<*vi;
+                cout<<indexmap(*vi);
                 out_edge_iterator oei, oeiend;
                 for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
-                    cout<<"->"<<target(*oei,graph);
+                    cout<<"->"<<indexmap(target(*oei,graph));
                 cout<<endl;
             }
 #endif
@@ -432,10 +450,10 @@ int main(int argc, char* argv[])
         cout << "graph after duplication of nodes to end_order" << endl;
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
-            cout<<*vi;
+            cout<<indexmap(*vi);
             out_edge_iterator oei, oeiend;
             for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
-                cout<<"->"<<target(*oei,graph);
+                cout<<"->"<<indexmap(target(*oei,graph));
             cout<<endl;
         }
 #endif
@@ -446,7 +464,7 @@ int main(int argc, char* argv[])
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             Graph::vertex_descriptor vd1 = *vi; 
-            cout<<"node: " << *vi << endl;
+            cout<<"node: " << indexmap(*vi) << endl;
             for (int i=0; i != graph[vd1].sites.size(); i++)
                 cout<<"site: "<< i
                     <<" num_edges to site: "<<graph[vd1].sites[i].edges.size()
@@ -457,7 +475,7 @@ int main(int argc, char* argv[])
 	
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
-        outfile<<num_vertices(graph)-1<<" ";
+        outfile<<num_vertices(graph)<<" ";
         outfile<<num_edges(graph)<<" ";
         int numTriangles=triangles(graph);
         int numTriples=countTriples(graph);
