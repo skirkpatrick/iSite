@@ -1,6 +1,6 @@
 #include<cstdio>    //fscanf can be useful if sites are read as strings
 #include<cstdlib>   //for atoi
-#include <time.h>   //for random number generation
+#include<time.h>    //for random number generation
 #include<iostream>  //for input and output
 #include<fstream>   //for file input and output
 #include<utility>   //for std::pair
@@ -8,11 +8,15 @@
 #include<map>       //for std::map
 #include<cstring>   //for std::string
 #include<algorithm> //for copying vectors
+#include<unistd.h>  //for better random seed
 
 
 #include<boost/graph/adjacency_list.hpp>
 #include<boost/graph/connected_components.hpp>
 #include<boost/property_map/property_map.hpp>
+#include<boost/random.hpp>
+#include<boost/generator_iterator.hpp>
+#include<boost/graph/random.hpp>
 
 using namespace std;
 using namespace boost;
@@ -58,6 +62,7 @@ typedef graph_traits<Graph>::vertex_iterator vertex_iterator;
 typedef graph_traits<Graph>::edge_iterator edge_iterator;
 typedef graph_traits<Graph>::adjacency_iterator AdjIter;
 typedef property_map<Graph, vertex_index_t>::type vimap;
+typedef mt19937 RNGType;
 
 
 /*
@@ -104,10 +109,16 @@ int countTriples(Graph& graph)
 /*
     Counts the number of components in a graph
 */
-int components(Graph& graph)
+int components(Graph& graph, vimap& indexmap)
 {
     dummy_property_map p;
-    return connected_components(graph, p);
+    int count=0;
+    vertex_iterator vi, viend;
+    for (tie(vi, viend)=vertices(graph); vi!=viend; vi++)
+    {
+        put(indexmap, *vi, count++);
+    }
+    return connected_components(graph, p, vertex_index_map(indexmap));
 }
 
 
@@ -124,8 +135,11 @@ struct parameters
 
 //For vertex index mapping
 unsigned int counter;
+static RNGType rng;
 
-//Given an edge and a vertex, returns the vertex on the opposite end
+/*
+    Given an edge and a vertex, returns the vertex on the opposite end
+*/
 Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
                                   const Graph::edge_descriptor ed,
                                   const Graph& graph)
@@ -133,16 +147,18 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
     return (vd==source(ed, graph)) ? target(ed, graph) : source(ed, graph);
 }
 
+/*
+    Completely duplicates a random node along with iSites and edges
+*/
 pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
                                                                vimap& indexmap)
 {
-    int parent = rand() % (num_vertices(graph));
-    cout << "node chosen for duplication (parent): " << parent << endl;
-    Graph::vertex_descriptor parent_description = vertex(parent, graph);
+    Graph::vertex_descriptor parent_description = random_vertex(graph, rng);
+    cout << "node chosen for duplication (parent): " << indexmap(parent_description)<<endl;
 
     //get a new vertex
     Graph::vertex_descriptor child_description = add_vertex(graph);
-    indexmap(child_description) = counter++;
+    put(indexmap, child_description, counter++);
     cout << "duplicated node (child): " << indexmap(child_description) << endl;
 
     //copy edges and isites
@@ -186,9 +202,17 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
     return tmpPair; 
 }
 
-//Perform iSite algorithm
+/*
+    Performs iSite algorithm
+    1)Duplicate random node
+    2)For each iSite, use prob_asym to choose parent or child
+    3)For each edge on chosen site, use prob_loss to determine if lost
+    4)Remove isolated vertices (vertex with degree=0)
+*/
 void duplication(Graph& graph, vimap& indexmap)
 {
+    uniform_real<> real_dist(0, 1);
+    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
     vertices=duplicate(graph, indexmap);
 
@@ -203,7 +227,7 @@ void duplication(Graph& graph, vimap& indexmap)
     {
         Graph::vertex_descriptor vertexLoss;
 
-        double rand_res = ((double) rand()) / (double)RAND_MAX;
+        double rand_res = rand_real();
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
@@ -221,12 +245,12 @@ void duplication(Graph& graph, vimap& indexmap)
 
         //prob_loss
         int numEdges = graph[vertexLoss].sites[i].edges.size();
+#ifdef DEBUG
+        cout<< "numEdges: " << numEdges << endl;
+#endif
         for (int j=0; j<numEdges; j++)
         {
-#ifdef DEBUG
-            cout<<"numEdges: "<<numEdges<<endl;
-#endif
-            rand_res = ((double) rand()) / (double)RAND_MAX;
+            rand_res = rand_real();
             if (rand_res <= param.prob_loss) //Edge is lost
             {
 #ifdef DEBUG
@@ -255,21 +279,6 @@ void duplication(Graph& graph, vimap& indexmap)
                 graph[connectedVertex].sites[connectedSite].edges.erase(
                     graph[connectedVertex].sites[connectedSite].edges.begin()+k);
 
-                //If connected iSite is empty, remove it
-                if (graph[connectedVertex].sites[connectedSite].edges.size()==0
-                    && connectedVertex != vertices.first
-                    && connectedVertex != vertices.second)
-                {
-                    graph[connectedVertex].sites.erase(
-                        graph[connectedVertex].sites.begin() + connectedSite);
-
-                    //If connected iSite is empty, remove it
-                    if (graph[connectedVertex].sites.empty())
-                    {
-                        //remove_vertex(connectedVertex, graph);
-                    }
-                }
-
                 remove_edge(edgeLoss, graph);
                 j--;
                 numEdges--;
@@ -288,6 +297,13 @@ void duplication(Graph& graph, vimap& indexmap)
         {
             graph[vertices.first].sites.erase(
                 graph[vertices.first].sites.begin() + i);
+            map<edge_descriptor,int>::iterator mit;
+            for (mit=graph[vertices.first].edgeToSite.begin();
+                 mit!=graph[vertices.first].edgeToSite.end();
+                 mit++)
+            {
+                if (mit->second > i) mit->second--;
+            }
             i--;
             j--;
         }
@@ -296,6 +312,13 @@ void duplication(Graph& graph, vimap& indexmap)
         {
             graph[vertices.second].sites.erase(
                 graph[vertices.second].sites.begin() + i);
+            map<edge_descriptor,int>::iterator mit;
+            for (mit=graph[vertices.second].edgeToSite.begin();
+                 mit!=graph[vertices.second].edgeToSite.end();
+                 mit++)
+            {
+                if (mit->second > i) mit->second--;
+            }
             i--;
             numSites--;
         }
@@ -303,14 +326,17 @@ void duplication(Graph& graph, vimap& indexmap)
     //If node has no iSites (and therefore no edges), delete it
     if (graph[vertices.first].sites.empty())
     {
-        //remove_vertex(vertices.first, graph);
+        remove_vertex(vertices.first, graph);
     }
     if (graph[vertices.second].sites.empty())
     {
-        //remove_vertex(vertices.second, graph);
+        remove_vertex(vertices.second, graph);
     }
 }
 
+/*
+    Increases age of every iSite by 1
+*/
 void addAge(Graph& graph)
 {
     vertex_iterator vi, viend;
@@ -372,7 +398,7 @@ int main(int argc, char* argv[])
     map<string,int> nodes;
     counter=0;
     string v1,v2;
-    srand(time(NULL));
+    rng.seed(time(NULL)*getpid());
 
     //Building seed graph
     while(!(infile>>v1>>v2).eof())
@@ -381,12 +407,12 @@ int main(int argc, char* argv[])
         if(nodes[v1]==0)
         {
             nodes[v1]=counter+1;
-            indexmap(add_vertex(graph))=counter++;
+            put(indexmap, add_vertex(graph), counter++);
         }
         if(nodes[v2]==0)
         {
             nodes[v2]=counter+1;
-            indexmap(add_vertex(graph))=counter++;
+            put(indexmap, add_vertex(graph), counter++);
         }
 
         //Add edge
@@ -482,7 +508,7 @@ int main(int argc, char* argv[])
         outfile<<numTriangles<<" ";
         outfile<<numTriples<<" ";
         outfile<<(double)(3*numTriangles)/numTriples<<" ";
-        outfile<<components(graph);
+        outfile<<components(graph, indexmap);
         outfile<<endl;
 
     }
