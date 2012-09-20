@@ -26,12 +26,14 @@ typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex
 
 struct isite
 {
+    string site_name;
     vector<edge_descriptor> edges;
     unsigned int age;
+
     isite() : age(0), edges()
     {
     }
-    isite(edge_descriptor e, unsigned int a) : age(a)
+    isite(edge_descriptor e, unsigned int a, string name) : age(a), site_name( name )
     {
         edges.push_back(e);
     }
@@ -39,8 +41,10 @@ struct isite
 
 struct vertexsites
 {
+    string vertex_name;
     vector<isite> sites;
     map<edge_descriptor,int> edgeToSite;
+    map<string, int> site_name_to_index;
 };
 
 typedef adjacency_list<listS, listS, undirectedS,
@@ -397,12 +401,24 @@ int main(int argc, char* argv[])
 
     map<string,int> nodes;
     counter=0;
-    string v1,v2;
+    string v1,v2, s1, s2, tmpStr;
     rng.seed(time(NULL)*getpid());
 
     //Building seed graph
-    while(!(infile>>v1>>v2).eof())
+    while( !(getline(infile, tmpStr)).eof() )
     {
+//expected input "v1 s1:s2 v2"
+//Parse input
+        v1 = tmpStr.substr(0,tmpStr.find(" "));
+        tmpStr.erase(0,v1.size()+1);
+        s1 = tmpStr.substr(0,tmpStr.find(":"));
+        tmpStr.erase(0,s1.size()+1);
+        s2 = tmpStr.substr(0,tmpStr.find(" "));
+        tmpStr.erase(0,s2.size()+1);
+        v2 = tmpStr;
+        cout << v1 << s1 << " " << s2 << v2 << endl;
+        
+
         //Create nodes if don't exist
         if(nodes[v1]==0)
         {
@@ -419,15 +435,39 @@ int main(int argc, char* argv[])
         Graph::vertex_descriptor vd1 = vertex(nodes[v1]-1,graph);
         Graph::vertex_descriptor vd2 = vertex(nodes[v2]-1,graph);
         Graph::edge_descriptor ed;
+        graph[vd1].vertex_name = v1;
+        graph[vd2].vertex_name = v2;
         bool temp_bool;
 
         tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
 
         //Add iSite
-        graph[vd1].sites.push_back(isite(ed,0));
-        graph[vd1].edgeToSite[ed]=graph[vd1].sites.size()-1;
-        graph[vd2].sites.push_back(isite(ed,0));
-        graph[vd2].edgeToSite[ed]=graph[vd2].sites.size()-1;
+        map<string, int>::iterator known_site_it;
+        known_site_it = graph[vd1].site_name_to_index.find(s1);
+        if (known_site_it == graph[vd1].site_name_to_index.end())
+        {
+            //if site has not been added to this node before
+            graph[vd1].sites.push_back(isite(ed,0, s1));
+            graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
+            graph[vd1].site_name_to_index.insert(make_pair(s1, graph[vd1].sites.size()-1));
+        }
+        else {
+            //if site is already on the node - just add edge to it
+            graph[vd1].sites[known_site_it->second].edges.push_back(ed);
+        }
+
+        known_site_it = graph[vd2].site_name_to_index.find(s2);
+        if (known_site_it == graph[vd2].site_name_to_index.end())
+        {
+            //if site has not been added to this node before
+            graph[vd2].sites.push_back(isite(ed,0, s2));
+            graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
+            graph[vd2].site_name_to_index.insert(make_pair(s2, graph[vd2].sites.size()-1));
+        }
+        else {
+            //if site is already on the node - just add edge to it
+            graph[vd2].sites[known_site_it->second].edges.push_back(ed);
+        }
 		
     }
 
@@ -454,6 +494,9 @@ int main(int argc, char* argv[])
 
     while (param.iterations--)
     {
+#ifdef DEBUG
+        cout << "interation: " << param.iterations << endl;
+#endif
         while (num_vertices(graph)<param.end_order)
         {
             addAge(graph);
@@ -490,9 +533,9 @@ int main(int argc, char* argv[])
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             Graph::vertex_descriptor vd1 = *vi; 
-            cout<<"node: " << indexmap(*vi) << endl;
+            cout<<"node: " << graph[vd1].vertex_name << endl;
             for (int i=0; i != graph[vd1].sites.size(); i++)
-                cout<<"site: "<< i
+                cout<<"site: "<< graph[vd1].sites[i].site_name 
                     <<" num_edges to site: "<<graph[vd1].sites[i].edges.size()
                     << " age of site: " << graph[vd1].sites[i].age << endl;
             cout<<endl;
@@ -512,7 +555,6 @@ int main(int argc, char* argv[])
         outfile<<endl;
 
     }
-
     outfile.close();
     infile.close();
 }
