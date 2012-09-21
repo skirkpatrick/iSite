@@ -1,4 +1,0 @@
-The iSite algorithm is a proposed model for the evolution of protein
-interaction networks developed by Todd A. Gibson and Debra S. Goldberg.
-
-This project is a C++ implementation of the iSite algorithm.
