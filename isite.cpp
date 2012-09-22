@@ -24,6 +24,10 @@ using namespace boost;
 typedef adjacency_list_traits<listS,listS,undirectedS>::edge_descriptor edge_descriptor;
 typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex_descriptor;
 
+vector<int> pred;                   //shows predecessor chain of nodes
+                                    //index - node's id : value - parent's id it was copied from
+                                    //seed graph nodes - value = -1
+
 struct isite
 {
     string site_name;
@@ -41,7 +45,7 @@ struct isite
 
 struct vertexsites
 {
-    string vertex_name;
+    int vertex_id;
     vector<isite> sites;
     map<edge_descriptor,int> edgeToSite;
     map<string, int> site_name_to_index;
@@ -199,6 +203,11 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
 
         graph[child_description].sites.push_back(newSite);
     }
+
+    //update pred[] for child
+    //index - child's id. value - parent's id
+    pred.push_back(graph[parent_description].vertex_id);
+    graph[child_description].vertex_id = pred.size()-1; 
 
     //return parent, child
     pair<Graph::vertex_descriptor, Graph::vertex_descriptor> tmpPair;
@@ -374,6 +383,7 @@ int main(int argc, char* argv[])
     param.prob_asym=atof(argv[3]);      //Probability of assymetry
     param.end_order=atoi(argv[4]);      //Order at which to stop
     param.iterations=atoi(argv[5]);     //Number of times to run algorithm
+    
 
     //Input validation
     if (param.prob_loss<0.0 || param.prob_loss>1.0)
@@ -399,6 +409,8 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
+    bool newNode1 = false;
+    bool newNode2 = false;
     map<string,int> nodes;
     counter=0;
     string v1,v2, s1, s2, tmpStr;
@@ -409,6 +421,9 @@ int main(int argc, char* argv[])
     {
 //expected input "v1 s1:s2 v2"
 //Parse input
+        newNode1 = false;
+        newNode2 = false;
+
         v1 = tmpStr.substr(0,tmpStr.find(" "));
         tmpStr.erase(0,v1.size()+1);
         s1 = tmpStr.substr(0,tmpStr.find(":"));
@@ -422,11 +437,13 @@ int main(int argc, char* argv[])
         //Create nodes if don't exist
         if(nodes[v1]==0)
         {
+            newNode1 = true;
             nodes[v1]=counter+1;
             put(indexmap, add_vertex(graph), counter++);
         }
         if(nodes[v2]==0)
         {
+            newNode2 = true;
             nodes[v2]=counter+1;
             put(indexmap, add_vertex(graph), counter++);
         }
@@ -435,10 +452,20 @@ int main(int argc, char* argv[])
         Graph::vertex_descriptor vd1 = vertex(nodes[v1]-1,graph);
         Graph::vertex_descriptor vd2 = vertex(nodes[v2]-1,graph);
         Graph::edge_descriptor ed;
-        graph[vd1].vertex_name = v1;
-        graph[vd2].vertex_name = v2;
-        bool temp_bool;
 
+//set id's to the nodes - but only if they have not been added before
+        if (newNode1)
+        {
+            pred.push_back(-1);
+            graph[vd1].vertex_id = pred.size()-1;
+        }
+        if (newNode2)
+        {
+            pred.push_back(-1);
+            graph[vd2].vertex_id = pred.size()-1;
+        }
+
+        bool temp_bool;
         tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
 
         //Add iSite
@@ -533,7 +560,7 @@ int main(int argc, char* argv[])
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             Graph::vertex_descriptor vd1 = *vi; 
-            cout<<"node: " << graph[vd1].vertex_name << endl;
+            cout<<"node: " << graph[vd1].vertex_id << endl;
             for (int i=0; i != graph[vd1].sites.size(); i++)
                 cout<<"site: "<< graph[vd1].sites[i].site_name 
                     <<" num_edges to site: "<<graph[vd1].sites[i].edges.size()
@@ -555,6 +582,26 @@ int main(int argc, char* argv[])
         outfile<<endl;
 
     }
+
+#ifdef DEBUG
+        cout << "testing pred[]" << endl;
+        for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
+        {
+            int curNum = graph[*vi].vertex_id;
+            cout << curNum << "<-";
+            while(pred[curNum] != -1) 
+            {
+                cout << pred[curNum] << "<-";
+                curNum = pred[curNum];
+            }
+            cout<<endl;
+        }
+#endif
+
+
+
     outfile.close();
     infile.close();
 }
+
+
