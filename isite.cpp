@@ -10,6 +10,7 @@
 #include<algorithm> //for copying vectors
 #include<unistd.h>  //for better random seed
 #include<cassert>   //for debugging
+#include<stack>
 
 
 #include<boost/graph/adjacency_list.hpp>
@@ -598,18 +599,24 @@ int main(int argc, char* argv[])
     }
 
 #ifdef DEBUG
-        cout << "testing pred[]" << endl;
+        cout << "***Node evolution***" << endl;
         Graph::vertex_iterator vi, viend;
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
+            stack<int> predStack;
             int curNum = graph[*vi].vertex_id;
-            cout << curNum << "<-";
+            cout << curNum << ": ";
             while(pred[curNum] != -1) 
             {
-                cout << pred[curNum] << "<-";
+                predStack.push(pred[curNum]);
                 curNum = pred[curNum];
             }
-            cout<<endl;
+            while (!predStack.empty())
+            {
+                cout << predStack.top() << "->";
+                predStack.pop();
+            }
+            cout << graph[*vi].vertex_id << endl;
         }
 #endif
 
