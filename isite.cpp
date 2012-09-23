@@ -10,7 +10,7 @@
 #include<algorithm> //for copying vectors
 #include<unistd.h>  //for better random seed
 #include<cassert>   //for debugging
-#include<stack>
+#include<stack>     //for printing predecessors
 
 
 #include<boost/graph/adjacency_list.hpp>
@@ -164,22 +164,29 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
                                                                vimap& indexmap)
 {
     Graph::vertex_descriptor parent_description = random_vertex(graph, rng);
-    cout << "node chosen for duplication (parent): " << indexmap(parent_description)<<endl;
+
+#ifdef DEBUG
+    cout << "**Duplication**" << endl;
+    cout << "Parent: " << indexmap(parent_description)<<endl;
+#endif
 
     //get a new vertex
     Graph::vertex_descriptor child_description = add_vertex(graph);
     put(indexmap, child_description, counter++);
-    cout << "duplicated node (child): " << indexmap(child_description) << endl;
+
+#ifdef DEBUG
+    cout << "Child: " << indexmap(child_description) << endl;
+#endif
 
     //copy edges and isites
     int numSites = graph[parent_description].sites.size();
-    for (int i=0; i < numSites; i++)
+    for (int i=0; i < numSites; i++) //cycle through sites
     {
         isite newSite;
         newSite.age=0;
 
         int siteEdges = graph[parent_description].sites[i].edges.size();
-        for (int j=0; j < siteEdges; j++)
+        for (int j=0; j < siteEdges; j++) //cycle through edges
         {
             
             Graph::edge_descriptor ed, ed2;
@@ -235,7 +242,7 @@ void duplication(Graph& graph, vimap& indexmap)
     int numSites = graph[vertices.first].sites.size();
 
 #ifdef DEBUG
-    cout<<"numSites: "<<numSites<<endl;
+    cout<<"iSites: "<<numSites<<endl;
 #endif
 
     for (int i=0; i<numSites; i++)
@@ -246,14 +253,14 @@ void duplication(Graph& graph, vimap& indexmap)
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
-            cout<<"prob_asym result: Parent"<<endl;
+            cout<<"\nAsymetry: Parent"<<endl;
 #endif
             vertexLoss = vertices.first;
         }
         else //Child loss
         {
 #ifdef DEBUG
-            cout<<"prob_asym result: Child"<<endl;
+            cout<<"\nAsymetry: Child"<<endl;
 #endif
             vertexLoss = vertices.second;
         }
@@ -261,7 +268,7 @@ void duplication(Graph& graph, vimap& indexmap)
         //prob_loss
         int numEdges = graph[vertexLoss].sites[i].edges.size();
 #ifdef DEBUG
-        cout<< "numEdges: " << numEdges << endl;
+        cout<< "Edges: " << numEdges << endl;
 #endif
         for (int j=0; j<numEdges; j++)
         {
@@ -269,7 +276,7 @@ void duplication(Graph& graph, vimap& indexmap)
             if (rand_res <= param.prob_loss) //Edge is lost
             {
 #ifdef DEBUG
-                cout<<"prob_loss: Yes"<<endl;
+                cout<<"\tLoss: Yes"<<endl;
 #endif
                 Graph::edge_descriptor edgeLoss;
                 edgeLoss = graph[vertexLoss].sites[i].edges[j];
@@ -294,12 +301,14 @@ void duplication(Graph& graph, vimap& indexmap)
                 graph[connectedVertex].sites[connectedSite].edges.erase(
                     graph[connectedVertex].sites[connectedSite].edges.begin()+k);
 
+                //*******Need to check if connected iSite is empty
+
                 remove_edge(edgeLoss, graph);
                 j--;
                 numEdges--;
             }
 #ifdef DEBUG
-            else cout<<"prob_loss: No"<<endl;
+            else cout<<"\tLoss: No"<<endl;
 #endif
         }//cycle through edges
 
@@ -569,17 +578,16 @@ int main(int argc, char* argv[])
 #endif
 
 #ifdef DEBUG
-        cout << "listing of all nodes. "
-            "For each node - the isite and the age of that site" << endl;
+        cout << "***Node summary***" << endl;
         Graph::vertex_iterator vi, viend;
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             Graph::vertex_descriptor vd1 = *vi; 
-            cout<<"node: " << graph[vd1].vertex_id << endl;
+            cout<<"Node: " << graph[vd1].vertex_id << endl;
             for (int i=0; i != graph[vd1].sites.size(); i++)
-                cout<<"site: "<< graph[vd1].sites[i].site_name 
-                    <<" num_edges to site: "<<graph[vd1].sites[i].edges.size()
-                    << " age of site: " << graph[vd1].sites[i].age << endl;
+                cout<<"\t"<<graph[vd1].sites[i].site_name
+                    <<":: Age: "<<graph[vd1].sites[i].age
+                    <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;
             cout<<endl;
         }
 #endif
