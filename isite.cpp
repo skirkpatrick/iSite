@@ -9,6 +9,7 @@
 #include<cstring>   //for std::string
 #include<algorithm> //for copying vectors
 #include<unistd.h>  //for better random seed
+#include<cassert>   //for debugging
 
 
 #include<boost/graph/adjacency_list.hpp>
@@ -367,6 +368,30 @@ void addAge(Graph& graph)
 }
 
 
+/*
+    Prints graph to standard out
+*/
+void printGraph(Graph& graph, vimap& indexmap)
+{
+    vertex_iterator vi, viend;
+    for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
+    {
+        //Current node
+        cout<<indexmap(*vi)<<":";
+        out_edge_iterator oei, oeiend;
+        //All connected nodes
+        for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
+        {
+            Graph::vertex_descriptor vd = target(*oei,graph);
+            assert(indexmap(vd) == graph[vd].vertex_id);
+            int site = graph[*vi].edgeToSite[*oei];
+            cout<<" "<<graph[*vi].sites[site].site_name<<"->"<<indexmap(vd);
+        }
+        cout<<endl;
+    }
+}
+
+
 int main(int argc, char* argv[])
 {
     if (argc!=6)
@@ -415,6 +440,10 @@ int main(int argc, char* argv[])
     counter=0;
     string v1,v2, s1, s2, tmpStr;
     rng.seed(time(NULL)*getpid());
+    
+#ifdef DEBUG
+    cout << "***Building graph from file***" << endl;
+#endif
 
     //Building seed graph
     while( !(getline(infile, tmpStr)).eof() )
@@ -431,8 +460,10 @@ int main(int argc, char* argv[])
         s2 = tmpStr.substr(0,tmpStr.find(" "));
         tmpStr.erase(0,s2.size()+1);
         v2 = tmpStr;
-        cout << v1 << s1 << " " << s2 << v2 << endl;
-        
+
+#ifdef DEBUG
+        cout << v1 << ":" << s1 << "<->" << s2 << ":" << v2 << endl;
+#endif
 
         //Create nodes if don't exist
         if(nodes[v1]==0)
@@ -499,16 +530,10 @@ int main(int argc, char* argv[])
     }
 
 #ifdef DEBUG
-    cout << "original graph" << endl;
-    vertex_iterator vi, viend;
-    for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
-    {
-        cout<<indexmap(*vi);
-        out_edge_iterator oei, oeiend;
-        for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
-            cout<<"->"<<indexmap(target(*oei,graph));
-        cout<<endl;
-    }
+    cout << endl << "***Original graph***" << endl;
+    printGraph(graph, indexmap);
+    cout << endl;
+    int iterations=param.iterations;
 #endif
 
     //Opening output file
@@ -519,44 +544,33 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    while (param.iterations--)
+    while (param.iterations--) //needs to encompass building seed graph, too
     {
 #ifdef DEBUG
-        cout << "interation: " << param.iterations << endl;
+        cout << "Iteration: " << iterations-param.iterations << endl;
 #endif
         while (num_vertices(graph)<param.end_order)
         {
             addAge(graph);
             duplication(graph, indexmap);
 #ifdef DEBUG
-            cout << "graph during algorithm" << endl;
-            for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
-            {
-                cout<<indexmap(*vi);
-                out_edge_iterator oei, oeiend;
-                for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
-                    cout<<"->"<<indexmap(target(*oei,graph));
-                cout<<endl;
-            }
+            cout << endl << "***Graph during algorithm***" << endl;
+            printGraph(graph, indexmap);
+            cout << endl;
 #endif
 
         }
 
 #ifdef DEBUG
-        cout << "graph after duplication of nodes to end_order" << endl;
-        for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
-        {
-            cout<<indexmap(*vi);
-            out_edge_iterator oei, oeiend;
-            for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
-                cout<<"->"<<indexmap(target(*oei,graph));
-            cout<<endl;
-        }
+        cout << "***End graph***" << endl;
+        printGraph(graph, indexmap);
+        cout << endl;
 #endif
 
 #ifdef DEBUG
         cout << "listing of all nodes. "
             "For each node - the isite and the age of that site" << endl;
+        Graph::vertex_iterator vi, viend;
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             Graph::vertex_descriptor vd1 = *vi; 
@@ -585,6 +599,7 @@ int main(int argc, char* argv[])
 
 #ifdef DEBUG
         cout << "testing pred[]" << endl;
+        Graph::vertex_iterator vi, viend;
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             int curNum = graph[*vi].vertex_id;
