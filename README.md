@@ -67,7 +67,7 @@ The value under <em>Loss</em> indicates whether a particular edge is lost as det
         SiteName:: Age: SiteAge, Edges: NumberOfEdges
 
 ###Node evolution
-####Outputs a trace of the nodes from which each site was duplicated
+####Outputs a trace of the nodes from which each node was duplicated
 <em>NodeIndex</em> refers to the mapped index of a node  
 <em>OriginNode</em> refers to the original node that was duplicated  
 <em>DuplicationN</em> refers to the Nth duplication, duplicated from the N-1th duplication  
