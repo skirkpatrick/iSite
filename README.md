@@ -46,8 +46,8 @@ The value under <em>Loss</em> indicates whether a particular edge is lost as det
     Child: ChildIndex
     iSites: NumberOfiSites
     (blankline)
-    Asymetry: \{ParentIndex | ChildIndex\}
-        Loss: \{Yes | No\}
+    Asymetry: {ParentIndex | ChildIndex}
+        Loss: {Yes | No}
     (blankline)
     .
     .
