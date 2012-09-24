@@ -21,6 +21,7 @@ Debug statements are formatted as follows:
 ####Outputs the rules for the seed graph as it is read from the file.
 <em>NodeName</em> refers to a string identifier for a node  
 <em>SiteName</em> refers to a string identifier for an iSite  
+
     NodeName:SiteName<->SiteName:NodeName
     NodeName:SiteName<->SiteName:NodeName
 
@@ -29,6 +30,7 @@ Debug statements are formatted as follows:
 <em>NodeIndex</em> refers to the mapped index of a node  
 <em>SiteName</em> refers to a string identifier for an iSite of <em>NodeIndex</em>  
 <em>ConnectedNode</em> refers to the mapped index of a node connected to <em>NodeIndex</em> at <em>SiteName</em>  
+
     NodeIndex: SiteName->ConnectedNode SiteName->ConnectedNode...
     NodeIndex: SiteName->ConnectedNode SiteName->ConnectedNode...
 
@@ -39,6 +41,7 @@ Debug statements are formatted as follows:
 <em>NumberOfiSites</em> refers to the number of iSites that were duplicated  
 The node listed under <em>Asymetry</em> is the node chosen by the probability of asymmetry  
 The value under <em>Loss</em> indicates whether a particular edge is lost as determined by the probability of loss  
+
     Parent: ParentIndex
     Child: ChildIndex
     iSites: NumberOfiSites
@@ -56,6 +59,7 @@ The value under <em>Loss</em> indicates whether a particular edge is lost as det
 <em>SiteName</em> refers to a string identifier for an iSite of <em>NodeIndex</em>  
 <em>SiteAge</em> refers to the age of <em>SiteName</em> in number of duplications that have passed since the iSite's creation  
 <em>NumberOfEdges</em> refers to the number of edges connected to <em>SiteName</em>  
+
     Node: NodeIndex
         SiteName:: Age: SiteAge, Edges: NumberOfEdges
     (blankline)
@@ -68,5 +72,6 @@ The value under <em>Loss</em> indicates whether a particular edge is lost as det
 <em>OriginNode</em> refers to the original node that was duplicated  
 <em>DuplicationN</em> refers to the Nth duplication, duplicated from the N-1th duplication  
 <em>ParentNode</em> refers to the node from which <em>NodeIndex</em> was directly duplicated  
+
     NodeIndex: OriginNode->Duplication1->...->ParentNode->NodeIndex
     NodeIndex: OriginNode->Duplication1->...->ParentNode->NodeIndex
