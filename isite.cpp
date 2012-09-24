@@ -253,14 +253,14 @@ void duplication(Graph& graph, vimap& indexmap)
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
-            cout<<"\nAsymetry: Parent"<<endl;
+            cout<<"\nAsymmetry: Parent"<<endl;
 #endif
             vertexLoss = vertices.first;
         }
         else //Child loss
         {
 #ifdef DEBUG
-            cout<<"\nAsymetry: Child"<<endl;
+            cout<<"\nAsymmetry: Child"<<endl;
 #endif
             vertexLoss = vertices.second;
         }
@@ -465,6 +465,7 @@ int main(int argc, char* argv[])
         newNode1 = false;
         newNode2 = false;
 
+        //strtok might be cleaner
         v1 = tmpStr.substr(0,tmpStr.find(" "));
         tmpStr.erase(0,v1.size()+1);
         s1 = tmpStr.substr(0,tmpStr.find(":"));
@@ -514,29 +515,43 @@ int main(int argc, char* argv[])
         //Add iSite
         map<string, int>::iterator known_site_it;
         known_site_it = graph[vd1].site_name_to_index.find(s1);
+            //if site has not been added to this node before
         if (known_site_it == graph[vd1].site_name_to_index.end())
         {
-            //if site has not been added to this node before
+                //make new iSite with new edge in it
             graph[vd1].sites.push_back(isite(ed,0, s1));
+                //set edgeToSite for new edge
             graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
+                //set site_name_to_index for new iSite
             graph[vd1].site_name_to_index.insert(make_pair(s1, graph[vd1].sites.size()-1));
         }
-        else {
             //if site is already on the node - just add edge to it
+        else
+        {
+                //insert new edge in iSite
             graph[vd1].sites[known_site_it->second].edges.push_back(ed);
+                //set edgeToSite for new edge
+            graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
         }
 
         known_site_it = graph[vd2].site_name_to_index.find(s2);
+            //if site has not been added to this node before
         if (known_site_it == graph[vd2].site_name_to_index.end())
         {
-            //if site has not been added to this node before
+                //make new iSite with new edge in it
             graph[vd2].sites.push_back(isite(ed,0, s2));
+                //set edgeToSite for new edge
             graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
+                //set site_name_to_index for new iSite
             graph[vd2].site_name_to_index.insert(make_pair(s2, graph[vd2].sites.size()-1));
         }
-        else {
             //if site is already on the node - just add edge to it
+        else
+        {
+                //insert new edge in iSite
             graph[vd2].sites[known_site_it->second].edges.push_back(ed);
+                //set edgeToSite for new edge
+            graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
         }
 		
     }
