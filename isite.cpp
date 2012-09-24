@@ -395,7 +395,9 @@ void printGraph(Graph& graph, vimap& indexmap)
             Graph::vertex_descriptor vd = target(*oei,graph);
             assert(indexmap(vd) == graph[vd].vertex_id);
             int site = graph[*vi].edgeToSite[*oei];
-            cout<<" "<<graph[*vi].sites[site].site_name<<"->"<<indexmap(vd);
+            int connectedSite = graph[vd].edgeToSite[*oei];
+            cout<<" "<<graph[*vi].sites[site].site_name<<"->"
+            <<graph[vd].sites[connectedSite].site_name<<":"<<indexmap(vd);
         }
         cout<<endl;
     }
