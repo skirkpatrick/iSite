@@ -574,6 +574,10 @@ int main(int argc, char* argv[])
 #ifdef DEBUG
         cout << "Iteration: " << iterations-param.iterations << endl;
 #endif
+#ifdef NDEBUG
+        cout << "Working";
+        cout.flush();
+#endif
         while (num_vertices(graph)<param.end_order)
         {
             addAge(graph);
@@ -583,6 +587,13 @@ int main(int argc, char* argv[])
             printGraph(graph, indexmap);
             cout << endl;
 #endif
+#ifdef NDEBUG
+            if (num_vertices(graph)%100==0)
+            {
+                cout<<".";
+                cout.flush();
+            }
+#endif
 
         }
 
@@ -590,9 +601,7 @@ int main(int argc, char* argv[])
         cout << "***End graph***" << endl;
         printGraph(graph, indexmap);
         cout << endl;
-#endif
 
-#ifdef DEBUG
         cout << "***Node summary***" << endl;
         Graph::vertex_iterator vi, viend;
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
@@ -605,6 +614,9 @@ int main(int argc, char* argv[])
                     <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;
             cout<<endl;
         }
+#endif
+#ifdef NDEBUG
+        cout<<endl;
 #endif
 	
         outfile<<param.prob_loss<<" ";
