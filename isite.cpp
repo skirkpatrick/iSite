@@ -47,6 +47,7 @@ struct isite
 
 struct vertexsites
 {
+    map<edge_descriptor, pair<int, int> > selfLoops;
     vector<isite> sites;
     map<edge_descriptor,int> edgeToSite;
     map<string, int> site_name_to_index;
@@ -380,6 +381,7 @@ void addAge(Graph& graph)
 void printGraph(Graph& graph, vimap& indexmap)
 {
     vertex_iterator vi, viend;
+    vector<edge_descriptor> printed_self_loops;
     for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
     {
         //Current node
@@ -390,10 +392,39 @@ void printGraph(Graph& graph, vimap& indexmap)
         {
             Graph::vertex_descriptor vd = target(*oei,graph);
             int site = graph[*vi].edgeToSite[*oei];
-            int connectedSite = graph[vd].edgeToSite[*oei];
-            cout<<" "<<graph[*vi].sites[site].site_name<<"->"
-            <<graph[vd].sites[connectedSite].site_name<<":"<<indexmap(vd);
+            if (site == -1)
+            {
+                bool already_printed = false;
+                for (vector<edge_descriptor>::iterator i=printed_self_loops.begin();
+                     i!=printed_self_loops.end(); i++)
+                {
+                    if (*i == *oei)
+                    {
+                        already_printed = true;
+                        printed_self_loops.erase(i);
+                        break;
+                    }
+                }
+
+                if (!already_printed)
+                {
+                    site = graph[*vi].selfLoops[*oei].first;
+                    int site2 = graph[*vi].selfLoops[*oei].second;
+                    cout<<" "<<graph[*vi].sites[site].site_name<<"->"
+                        <<graph[*vi].sites[site2].site_name<<":"
+                        <<indexmap(vd);
+                    printed_self_loops.push_back(*oei);
+                }
+            }
+            else
+            {
+                int connectedSite = graph[vd].edgeToSite[*oei];
+                cout<<" "<<graph[*vi].sites[site].site_name<<"->"
+                    <<graph[vd].sites[connectedSite].site_name<<":"
+                    <<indexmap(vd);
+            }
         }
+        printed_self_loops.clear();
         cout<<endl;
     }
 }
@@ -497,6 +528,7 @@ int main(int argc, char* argv[])
 
         bool temp_bool;
         tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
+        pair<int,int> edge_site_indices;
 
         //Add iSite
         map<string, int>::iterator known_site_it;
@@ -507,6 +539,7 @@ int main(int argc, char* argv[])
                 //make new iSite with new edge in it
             graph[vd1].sites.push_back(isite(ed,0, s1));
                 //set edgeToSite for new edge
+            edge_site_indices.first = graph[vd1].sites.size()-1;
             graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
                 //set site_name_to_index for new iSite
             graph[vd1].site_name_to_index.insert(make_pair(s1, graph[vd1].sites.size()-1));
@@ -517,27 +550,40 @@ int main(int argc, char* argv[])
                 //insert new edge in iSite
             graph[vd1].sites[known_site_it->second].edges.push_back(ed);
                 //set edgeToSite for new edge
-            graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
+            edge_site_indices.first = known_site_it->second;
+            graph[vd1].edgeToSite.insert(make_pair(ed, known_site_it->second));
         }
 
-        known_site_it = graph[vd2].site_name_to_index.find(s2);
-            //if site has not been added to this node before
-        if (known_site_it == graph[vd2].site_name_to_index.end())
+        if (!((v1==v2) && (s1==s2))) //check for self loops
         {
-                //make new iSite with new edge in it
-            graph[vd2].sites.push_back(isite(ed,0, s2));
-                //set edgeToSite for new edge
-            graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
-                //set site_name_to_index for new iSite
-            graph[vd2].site_name_to_index.insert(make_pair(s2, graph[vd2].sites.size()-1));
+            known_site_it = graph[vd2].site_name_to_index.find(s2);
+                //if site has not been added to this node before
+            if (known_site_it == graph[vd2].site_name_to_index.end())
+            {
+                    //make new iSite with new edge in it
+                graph[vd2].sites.push_back(isite(ed,0, s2));
+                    //set edgeToSite for new edge
+                edge_site_indices.second = graph[vd2].sites.size()-1;
+                graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
+                    //set site_name_to_index for new iSite
+                graph[vd2].site_name_to_index.insert(make_pair(s2, graph[vd2].sites.size()-1));
+            }
+                //if site is already on the node - just add edge to it
+            else
+            {
+                    //insert new edge in iSite
+                graph[vd2].sites[known_site_it->second].edges.push_back(ed);
+                    //set edgeToSite for new edge
+                edge_site_indices.second = known_site_it->second;
+                graph[vd2].edgeToSite.insert(make_pair(ed, known_site_it->second));
+            }
         }
-            //if site is already on the node - just add edge to it
-        else
+
+        //self loops
+        if (v1==v2)
         {
-                //insert new edge in iSite
-            graph[vd2].sites[known_site_it->second].edges.push_back(ed);
-                //set edgeToSite for new edge
-            graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
+            graph[vd1].edgeToSite[ed] = -1;
+            graph[vd1].selfLoops.insert(make_pair(ed, edge_site_indices));
         }
 		
     }
