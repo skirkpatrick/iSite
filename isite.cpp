@@ -301,8 +301,6 @@ void duplication(Graph& graph, vimap& indexmap)
                 graph[connectedVertex].sites[connectedSite].edges.erase(
                     graph[connectedVertex].sites[connectedSite].edges.begin()+k);
 
-                //*******Need to check if connected iSite is empty
-
                 remove_edge(edgeLoss, graph);
                 j--;
                 numEdges--;
