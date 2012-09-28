@@ -23,6 +23,8 @@
 using namespace std;
 using namespace boost;
 
+enum output_type {PRINT, NODE_SUMMARY, STATUS, EVOLUTION};
+
 typedef adjacency_list_traits<listS,listS,undirectedS>::edge_descriptor edge_descriptor;
 typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex_descriptor;
 
@@ -400,6 +402,78 @@ void printGraph(Graph& graph, vimap& indexmap)
     }
 }
 
+//enum output_type {print, node_summary, status};
+void output_info(Graph graph, vimap indexmap, string label, output_type type) 
+{
+#ifdef DEBUG
+    Graph::vertex_iterator vi, viend;
+    switch(type)
+    {
+        case PRINT:
+            cout << endl << label << endl;
+            printGraph(graph, indexmap);
+            cout << endl;
+        break;
+
+        case NODE_SUMMARY:
+            cout << endl << label << endl;
+            for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
+            {
+                Graph::vertex_descriptor vd1 = *vi; 
+                cout<<"Node: " << indexmap(vd1) << endl;
+                for (int i=0; i != graph[vd1].sites.size(); i++)
+                    cout<<"\t"<<graph[vd1].sites[i].site_name
+                        <<":: Age: "<<graph[vd1].sites[i].age
+                        <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;
+                cout<<endl;
+            }
+        break;
+        
+        case EVOLUTION:
+            cout << endl << label << endl;
+            for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
+            {
+                stack<int> predStack;
+                int curNum = indexmap(*vi);
+                cout << curNum << ": ";
+                while(pred[curNum] != -1) 
+                {
+                    predStack.push(pred[curNum]);
+                    curNum = pred[curNum];
+                }
+                while (!predStack.empty())
+                {
+                    cout << predStack.top() << "->";
+                    predStack.pop();
+                }
+                cout << indexmap(*vi) << endl;
+            }
+        break;
+        default:
+
+        break;
+    }
+#endif
+
+#ifdef NDEBUG
+    switch(type)
+    {
+        case STATUS:
+            cout << endl << label << endl;
+            if (num_vertices(graph)%100==0)
+            {
+                cout<<".";
+                cout.flush();
+            }
+        break;
+
+        default:
+
+        break;
+    }
+#endif
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -551,12 +625,9 @@ int main(int argc, char* argv[])
 		
     }
 
-#ifdef DEBUG
-    cout << endl << "***Original graph***" << endl;
-    printGraph(graph, indexmap);
-    cout << endl;
+    output_info(graph, indexmap, "***origional graph***", PRINT); 
+
     int iterations=param.iterations;
-#endif
 
     //Opening output file
     ofstream outfile("result");
@@ -579,39 +650,14 @@ int main(int argc, char* argv[])
         {
             addAge(graph);
             duplication(graph, indexmap);
-#ifdef DEBUG
-            cout << endl << "***Graph during algorithm***" << endl;
-            printGraph(graph, indexmap);
-            cout << endl;
-#endif
-#ifdef NDEBUG
-            if (num_vertices(graph)%100==0)
-            {
-                cout<<".";
-                cout.flush();
-            }
-#endif
 
+            output_info(graph, indexmap, "***Graph during algorithm***", PRINT); 
+            output_info(graph, indexmap, "", STATUS); 
         }
 
-#ifdef DEBUG
-        cout << "***End graph***" << endl;
-        printGraph(graph, indexmap);
-        cout << endl;
+        output_info(graph, indexmap, "***End Graph***", PRINT); 
+        output_info(graph, indexmap, "***Node Summary***", NODE_SUMMARY); 
 
-        cout << "***Node summary***" << endl;
-        Graph::vertex_iterator vi, viend;
-        for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
-        {
-            Graph::vertex_descriptor vd1 = *vi; 
-            cout<<"Node: " << indexmap(vd1) << endl;
-            for (int i=0; i != graph[vd1].sites.size(); i++)
-                cout<<"\t"<<graph[vd1].sites[i].site_name
-                    <<":: Age: "<<graph[vd1].sites[i].age
-                    <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;
-            cout<<endl;
-        }
-#endif
 #ifdef NDEBUG
         cout<<endl;
 #endif
@@ -630,29 +676,7 @@ int main(int argc, char* argv[])
 
     }
 
-#ifdef DEBUG
-        cout << "***Node evolution***" << endl;
-        Graph::vertex_iterator vi, viend;
-        for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
-        {
-            stack<int> predStack;
-            int curNum = indexmap(*vi);
-            cout << curNum << ": ";
-            while(pred[curNum] != -1) 
-            {
-                predStack.push(pred[curNum]);
-                curNum = pred[curNum];
-            }
-            while (!predStack.empty())
-            {
-                cout << predStack.top() << "->";
-                predStack.pop();
-            }
-            cout << indexmap(*vi) << endl;
-        }
-#endif
-
-
+    output_info(graph, indexmap, "***Node Evolution***", EVOLUTION); 
 
     outfile.close();
     infile.close();
