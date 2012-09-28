@@ -183,6 +183,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
     {
         isite newSite;
         newSite.age=0;
+        newSite.site_name = graph[parent_description].sites[i].site_name;
 
         int siteEdges = graph[parent_description].sites[i].edges.size();
         for (int j=0; j < siteEdges; j++) //cycle through edges
@@ -213,7 +214,6 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
     }
 
     //update pred[] for child
-    //index - child's id. value - parent's id
     pred.push_back(indexmap(parent_description));
 
     //return parent, child
