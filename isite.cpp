@@ -47,7 +47,6 @@ struct isite
 
 struct vertexsites
 {
-    int vertex_id;
     vector<isite> sites;
     map<edge_descriptor,int> edgeToSite;
     map<string, int> site_name_to_index;
@@ -215,8 +214,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
 
     //update pred[] for child
     //index - child's id. value - parent's id
-    pred.push_back(graph[parent_description].vertex_id);
-    graph[child_description].vertex_id = pred.size()-1; 
+    pred.push_back(indexmap(parent_description));
 
     //return parent, child
     pair<Graph::vertex_descriptor, Graph::vertex_descriptor> tmpPair;
@@ -393,7 +391,6 @@ void printGraph(Graph& graph, vimap& indexmap)
         for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
         {
             Graph::vertex_descriptor vd = target(*oei,graph);
-            assert(indexmap(vd) == graph[vd].vertex_id);
             int site = graph[*vi].edgeToSite[*oei];
             int connectedSite = graph[vd].edgeToSite[*oei];
             cout<<" "<<graph[*vi].sites[site].site_name<<"->"
@@ -501,12 +498,10 @@ int main(int argc, char* argv[])
         if (newNode1)
         {
             pred.push_back(-1);
-            graph[vd1].vertex_id = pred.size()-1;
         }
         if (newNode2)
         {
             pred.push_back(-1);
-            graph[vd2].vertex_id = pred.size()-1;
         }
 
         bool temp_bool;
@@ -609,7 +604,7 @@ int main(int argc, char* argv[])
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             Graph::vertex_descriptor vd1 = *vi; 
-            cout<<"Node: " << graph[vd1].vertex_id << endl;
+            cout<<"Node: " << indexmap(vd1) << endl;
             for (int i=0; i != graph[vd1].sites.size(); i++)
                 cout<<"\t"<<graph[vd1].sites[i].site_name
                     <<":: Age: "<<graph[vd1].sites[i].age
@@ -641,7 +636,7 @@ int main(int argc, char* argv[])
         for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
         {
             stack<int> predStack;
-            int curNum = graph[*vi].vertex_id;
+            int curNum = indexmap(*vi);
             cout << curNum << ": ";
             while(pred[curNum] != -1) 
             {
@@ -653,7 +648,7 @@ int main(int argc, char* argv[])
                 cout << predStack.top() << "->";
                 predStack.pop();
             }
-            cout << graph[*vi].vertex_id << endl;
+            cout << indexmap(*vi) << endl;
         }
 #endif
 
