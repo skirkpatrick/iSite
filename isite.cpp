@@ -480,7 +480,6 @@ int main(int argc, char* argv[])
             nodes[v1]=counter+1;
             put(indexmap, add_vertex(graph), counter++);
             pred.push_back(-1);
-            graph[vertex(counter-1,graph)].vertex_id = pred.size()-1;
         }
         if(nodes[v2]==0)
         {
@@ -488,7 +487,6 @@ int main(int argc, char* argv[])
             nodes[v2]=counter+1;
             put(indexmap, add_vertex(graph), counter++);
             pred.push_back(-1);
-            graph[vertex(counter-1,graph)].vertex_id = pred.size()-1;
         }
 
         //Add edge
@@ -497,7 +495,6 @@ int main(int argc, char* argv[])
         Graph::edge_descriptor ed;
 
 
->>>>>>> c4c7a7e641694bac3c092d666cc9a01d9d1d93a7
         bool temp_bool;
         tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
 
