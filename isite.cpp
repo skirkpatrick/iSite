@@ -482,30 +482,22 @@ int main(int argc, char* argv[])
             newNode1 = true;
             nodes[v1]=counter+1;
             put(indexmap, add_vertex(graph), counter++);
+            pred.push_back(-1);
+            graph[vertex(counter-1,graph)].vertex_id = pred.size()-1;
         }
         if(nodes[v2]==0)
         {
             newNode2 = true;
             nodes[v2]=counter+1;
             put(indexmap, add_vertex(graph), counter++);
+            pred.push_back(-1);
+            graph[vertex(counter-1,graph)].vertex_id = pred.size()-1;
         }
 
         //Add edge
         Graph::vertex_descriptor vd1 = vertex(nodes[v1]-1,graph);
         Graph::vertex_descriptor vd2 = vertex(nodes[v2]-1,graph);
         Graph::edge_descriptor ed;
-
-//set id's to the nodes - but only if they have not been added before
-        if (newNode1)
-        {
-            pred.push_back(-1);
-            graph[vd1].vertex_id = pred.size()-1;
-        }
-        if (newNode2)
-        {
-            pred.push_back(-1);
-            graph[vd2].vertex_id = pred.size()-1;
-        }
 
         bool temp_bool;
         tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
