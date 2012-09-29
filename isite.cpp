@@ -432,7 +432,7 @@ void printGraph(Graph& graph, vimap& indexmap)
 }
 
 //enum output_type {print, node_summary, status};
-void output_info(Graph graph, vimap indexmap, string label, output_type type) 
+void output_info(Graph& graph, vimap& indexmap, const string& label, output_type type)
 {
 #ifdef DEBUG
     Graph::vertex_iterator vi, viend;
@@ -628,7 +628,7 @@ int main(int argc, char* argv[])
             graph[vd1].edgeToSite.insert(make_pair(ed, known_site_it->second));
         }
 
-        if (!((v1==v2) && (s1==s2))) //check for self loops
+        if (!((v1==v2) && (s1==s2))) //check for self loops and same iSite
         {
             known_site_it = graph[vd2].site_name_to_index.find(s2);
                 //if site has not been added to this node before
@@ -662,7 +662,7 @@ int main(int argc, char* argv[])
 		
     }
 
-    output_info(graph, indexmap, "***origional graph***", PRINT); 
+    output_info(graph, indexmap, "***Original graph***", PRINT); 
 
     int iterations=param.iterations;
 
