@@ -323,7 +323,9 @@ void duplication(Graph& graph, vimap& indexmap)
         Graph::vertex_descriptor vertexLoss;
 
         double rand_res = rand_real();
+#ifdef DEBUG
         cout<<"\niSite: "<<graph[vertices.first].sites[i].site_name<<endl;
+#endif
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
@@ -570,7 +572,6 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
     switch(type)
     {
         case STATUS:
-            cout << endl << label << endl;
             if (num_vertices(graph)%100==0)
             {
                 cout<<".";
