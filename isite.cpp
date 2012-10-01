@@ -38,7 +38,10 @@ struct isite
     vector<edge_descriptor> edges;
     unsigned int age;
 
-    isite() : age(0), edges()
+    isite() : site_name(""), age(0), edges()
+    {
+    }
+    isite(const isite& is) : site_name(is.site_name), age(is.age), edges(is.edges)
     {
     }
     isite(edge_descriptor e, unsigned int a, string name) : age(a), site_name( name )
@@ -75,6 +78,39 @@ typedef graph_traits<Graph>::edge_iterator edge_iterator;
 typedef graph_traits<Graph>::adjacency_iterator AdjIter;
 typedef property_map<Graph, vertex_index_t>::type vimap;
 typedef mt19937 RNGType;
+
+
+Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
+                                  const Graph::edge_descriptor ed,
+                                  const Graph& graph);
+
+
+/*
+    Outputs formatted edge output to standard out
+*/
+void printEdge(Graph& graph,
+               Graph::vertex_descriptor& vd,
+               Graph::edge_descriptor& ed,
+               vimap& indexmap)
+{
+    Graph::vertex_descriptor connectedNode = edgeDest(vd, ed, graph);
+    int site = graph[vd].edgeToSite[ed];
+    if (site == -1)
+    {
+        site = graph[vd].selfLoops[ed].first;
+        int site2 = graph[vd].selfLoops[ed].second;
+        cout<<" "<<graph[vd].sites[site].site_name<<"->"
+            <<graph[vd].sites[site2].site_name<<":"
+            <<indexmap(vd);
+    }
+    else
+    {
+        int connectedSite = graph[connectedNode].edgeToSite[ed];
+        cout<<" "<<graph[vd].sites[site].site_name<<"->"
+            <<graph[connectedNode].sites[connectedSite].site_name<<":"
+            <<indexmap(connectedNode);
+    }
+}
 
 
 /*
@@ -159,6 +195,7 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
     return (vd==source(ed, graph)) ? target(ed, graph) : source(ed, graph);
 }
 
+
 /*
     Completely duplicates a random node along with iSites and edges
 */
@@ -191,26 +228,60 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
         int siteEdges = graph[parent_description].sites[i].edges.size();
         for (int j=0; j < siteEdges; j++) //cycle through edges
         {
+            Graph::edge_descriptor parent_edge;
+            parent_edge = graph[parent_description].sites[i].edges[j];
+            if (graph[parent_description].edgeToSite[parent_edge] == -1)
+            {
+                int site1 = graph[parent_description].selfLoops[parent_edge].first;
+                int site2 = graph[parent_description].selfLoops[parent_edge].second;
+                //self loop on same node
+                if (site1 == site2)
+                {
+                    Graph::edge_descriptor ed, ed_tie;
+                    bool temp_bool;
+                    //copy self loop
+                    tie(ed, temp_bool) = add_edge(child_description, child_description, graph);
+
+                    //create edge between parent and child
+                    tie(ed_tie, temp_bool) = add_edge(parent_description, child_description, graph);
+
+                    //update child site
+                    newSite.edges.push_back(ed);
+                    newSite.edges.push_back(ed_tie);
+                    graph[child_description].edgeToSite[ed] = -1;
+                    graph[child_description].selfLoops[ed] = make_pair(i, i);
+                    graph[child_description].edgeToSite[ed_tie] = i;
+
+                    //update parent site
+                    graph[parent_description].sites[i].edges.push_back(ed_tie);
+                    graph[parent_description].edgeToSite[ed_tie] = i;
+                }
+                //self loop on different nodes
+                else
+                {
+                    assert(0==1);
+                }
+            }
+            else
+            {
             
-            Graph::edge_descriptor ed, ed2;
-            bool temp_bool;
-            Graph::vertex_descriptor vd = edgeDest(parent_description,
-                graph[parent_description].sites[i].edges[j], graph);
+                Graph::edge_descriptor ed, ed2;
+                bool temp_bool;
+                Graph::vertex_descriptor vd = edgeDest(parent_description,
+                    parent_edge, graph);
 
-            tie(ed, temp_bool) = add_edge(child_description,vd,graph);
+                tie(ed, temp_bool) = add_edge(child_description,vd,graph);
 
-            //update child iSite
-            newSite.edges.push_back(ed);
-            graph[child_description].edgeToSite[ed]=i;
+                //update child iSite
+                newSite.edges.push_back(ed);
+                graph[child_description].edgeToSite[ed]=i;
 
-            //update other node's iSite
-            tie(ed2, temp_bool) = edge(parent_description, vd, graph);
-            graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
-            graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
+                //update other node's iSite
+                tie(ed2, temp_bool) = edge(parent_description, vd, graph);
+                graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
+                graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
 
-            //self-loop (not yet implemented)
-                //may need to be at beginning of loop
-            if (target(ed, graph)==source(ed, graph));
+            }
         }
 
         graph[child_description].sites.push_back(newSite);
@@ -224,6 +295,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
     tmpPair = std::make_pair(parent_description, child_description);
     return tmpPair; 
 }
+
 
 /*
     Performs iSite algorithm
@@ -251,17 +323,18 @@ void duplication(Graph& graph, vimap& indexmap)
         Graph::vertex_descriptor vertexLoss;
 
         double rand_res = rand_real();
+        cout<<"\niSite: "<<graph[vertices.first].sites[i].site_name<<endl;
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
-            cout<<"\nAsymmetry: Parent"<<endl;
+            cout<<"Asymmetry: Parent"<<endl;
 #endif
             vertexLoss = vertices.first;
         }
         else //Child loss
         {
 #ifdef DEBUG
-            cout<<"\nAsymmetry: Child"<<endl;
+            cout<<"Asymmetry: Child"<<endl;
 #endif
             vertexLoss = vertices.second;
         }
@@ -273,11 +346,15 @@ void duplication(Graph& graph, vimap& indexmap)
 #endif
         for (int j=0; j<numEdges; j++)
         {
+#ifdef DEBUG
+            cout<<"\tLoss ";
+            printEdge(graph, vertexLoss, graph[vertexLoss].sites[i].edges[j], indexmap);
+#endif
             rand_res = rand_real();
             if (rand_res <= param.prob_loss) //Edge is lost
             {
 #ifdef DEBUG
-                cout<<"\tLoss: Yes"<<endl;
+                cout<<": Yes"<<endl;
 #endif
                 Graph::edge_descriptor edgeLoss;
                 edgeLoss = graph[vertexLoss].sites[i].edges[j];
@@ -287,28 +364,33 @@ void duplication(Graph& graph, vimap& indexmap)
                 graph[vertexLoss].sites[i].edges.erase(
                     graph[vertexLoss].sites[i].edges.begin()+j);
 
-                //Update connected vertex
-                Graph::vertex_descriptor connectedVertex;
-                connectedVertex = edgeDest(vertexLoss, edgeLoss, graph);
-                int connectedSite = graph[connectedVertex].edgeToSite[edgeLoss];
-                int connectedSiteSize = graph[connectedVertex].sites[connectedSite].edges.size();
-                int k;
-                for (k=0; k<connectedSiteSize; k++)
+                //Check for self loop
+                if (source(edgeLoss, graph) != target(edgeLoss, graph))
                 {
-                    if (graph[connectedVertex].sites[connectedSite].edges[k]==edgeLoss)
-                        break;
+                    //Update connected vertex
+                    Graph::vertex_descriptor connectedVertex;
+                    connectedVertex = edgeDest(vertexLoss, edgeLoss, graph);
+                    int connectedSite = graph[connectedVertex].edgeToSite[edgeLoss];
+                    int connectedSiteSize = graph[connectedVertex].sites[connectedSite].edges.size();
+                    int k;
+                    for (k=0; k<connectedSiteSize; k++)
+                    {
+                        if (graph[connectedVertex].sites[connectedSite].edges[k]==edgeLoss)
+                            break;
+                    }
+                    graph[connectedVertex].edgeToSite.erase(edgeLoss);
+                    graph[connectedVertex].sites[connectedSite].edges.erase(
+                        graph[connectedVertex].sites[connectedSite].edges.begin()+k);
                 }
-                graph[connectedVertex].edgeToSite.erase(edgeLoss);
-                graph[connectedVertex].sites[connectedSite].edges.erase(
-                    graph[connectedVertex].sites[connectedSite].edges.begin()+k);
 
                 remove_edge(edgeLoss, graph);
                 j--;
                 numEdges--;
             }
 #ifdef DEBUG
-            else cout<<"\tLoss: No"<<endl;
+            else cout<<": No"<<endl;
 #endif
+
         }//cycle through edges
 
     }//cycle through iSites
@@ -651,6 +733,10 @@ int main(int argc, char* argv[])
                 edge_site_indices.second = known_site_it->second;
                 graph[vd2].edgeToSite.insert(make_pair(ed, known_site_it->second));
             }
+        }
+        else
+        {
+            edge_site_indices.second = edge_site_indices.first;
         }
 
         //self loops
