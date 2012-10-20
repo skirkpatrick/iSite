@@ -230,6 +230,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
         {
             Graph::edge_descriptor parent_edge;
             parent_edge = graph[parent_description].sites[i].edges[j];
+            //self loop
             if (graph[parent_description].edgeToSite[parent_edge] == -1)
             {
                 int site1 = graph[parent_description].selfLoops[parent_edge].first;
