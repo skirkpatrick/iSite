@@ -277,7 +277,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
                 graph[child_description].edgeToSite[ed]=i;
 
                 //update other node's iSite
-                tie(ed2, temp_bool) = edge(parent_description, vd, graph);
+                ed2 = graph[parent_description].sites[i].edges[j];
                 graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
                 graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
 
