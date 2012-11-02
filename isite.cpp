@@ -177,6 +177,7 @@ struct parameters
     string infile;
     double prob_loss;
     double prob_asym;
+    double prob_self;
     unsigned int end_order;
     unsigned int iterations;
 } param;
@@ -353,15 +354,19 @@ void duplication(Graph& graph, vimap& indexmap)
             cout<<"\tLoss ";
             printEdge(graph, vertexLoss, graph[vertexLoss].sites[i].edges[j], indexmap);
 #endif
+            Graph::edge_descriptor edgeLoss;
+            edgeLoss = graph[vertexLoss].sites[i].edges[j];
+            double prob_loss;
+            if (source(edgeLoss, graph) != target(edgeLoss, graph))
+                prob_loss = param.prob_loss;
+            else
+                prob_loss = param.prob_self;
             rand_res = rand_real();
-            if (rand_res <= param.prob_loss) //Edge is lost
+            if (rand_res <= prob_loss) //Edge is lost
             {
 #ifdef DEBUG
                 cout<<": Yes"<<endl;
 #endif
-                Graph::edge_descriptor edgeLoss;
-                edgeLoss = graph[vertexLoss].sites[i].edges[j];
-
                 //Remove from vertexLoss
                 graph[vertexLoss].edgeToSite.erase(edgeLoss);
                 graph[vertexLoss].sites[i].edges.erase(
@@ -590,20 +595,22 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=6)
+    if (argc!=7)
     {
-        cerr<<"Usage: ./iSite <seed-graph> <probability of loss> "
-                "<probability of assymetry> <end order> <iterations>"<<endl;
+        cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
+                "<probability of assymetry> <probability of homomeric subfunctionalization> "
+                "<end order> <iterations>"<<endl;
         exit(1);
     }
 
     Graph graph;                        //Protein network
     vimap indexmap = get(vertex_index, graph);
     param.infile=argv[1];               //Seed graph
-    param.prob_loss=atof(argv[2]);      //Probability of loss of redundancy
+    param.prob_loss=atof(argv[2]);      //Probability of loss of redundancy (subfunctionalization)
     param.prob_asym=atof(argv[3]);      //Probability of assymetry
-    param.end_order=atoi(argv[4]);      //Order at which to stop
-    param.iterations=atoi(argv[5]);     //Number of times to run algorithm
+    param.prob_self=atof(argv[4]);      //Probability of homomeric subfunctionalization
+    param.end_order=atoi(argv[5]);      //Order at which to stop
+    param.iterations=atoi(argv[6]);     //Number of times to run algorithm
     
 
     //Input validation
@@ -615,6 +622,11 @@ int main(int argc, char* argv[])
     if (param.prob_asym<0.0 || param.prob_loss>1.0)
     {
         cerr<<"Error: Probability of assymetry must be between 0 and 1"<<endl;
+        exit(1);
+    }
+    if (param.prob_self<0.0 || param.prob_self>1.0)
+    {
+        cerr<<"Error: Probability of homomeric subfunctionalization must be between 0 and 1"<<endl;
         exit(1);
     }
     if (param.iterations<0)
@@ -761,6 +773,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: result"<<endl;
         exit(1);
     }
+    outfile << "subfuncProb asymmetry selfloopLoss actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
 
     while (param.iterations--) //needs to encompass building seed graph, too
     {
@@ -789,6 +802,9 @@ int main(int argc, char* argv[])
 	
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
+        outfile<<param.prob_self<<" ";
+        //actualAsymmetry needed
+        //selfloops needed
         outfile<<num_vertices(graph)<<" ";
         outfile<<num_edges(graph)<<" ";
         int numTriangles=triangles(graph);
