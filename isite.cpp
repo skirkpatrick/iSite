@@ -31,6 +31,7 @@ typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex
 vector<int> pred;                   //shows predecessor chain of nodes
                                     //index - node's id : value - parent's id it was copied from
                                     //seed graph nodes - value = -1
+int nSelfLoops=0;
 
 struct isite
 {
@@ -235,6 +236,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
             //self loop
             if (graph[parent_description].edgeToSite[parent_edge] == -1)
             {
+                ++nSelfLoops;
                 int site1 = graph[parent_description].selfLoops[parent_edge].first;
                 int site2 = graph[parent_description].selfLoops[parent_edge].second;
                 //self loop on same node
@@ -391,6 +393,7 @@ void duplication(Graph& graph, vimap& indexmap)
                     graph[connectedVertex].sites[connectedSite].edges.erase(
                         graph[connectedVertex].sites[connectedSite].edges.begin()+k);
                 }
+                else --nSelfLoops;
 
                 remove_edge(edgeLoss, graph);
                 j--;
@@ -763,6 +766,7 @@ int main(int argc, char* argv[])
         //self loops
         if (v1==v2)
         {
+            ++nSelfLoops;
             graph[vd1].edgeToSite[ed] = -1;
             graph[vd1].selfLoops.insert(make_pair(ed, edge_site_indices));
         }
@@ -811,7 +815,7 @@ int main(int argc, char* argv[])
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
         //actualAsymmetry needed
-        //selfloops needed
+        outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
         outfile<<num_edges(graph)<<" ";
         int numTriangles=triangles(graph);
