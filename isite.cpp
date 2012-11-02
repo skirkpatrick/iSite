@@ -178,6 +178,7 @@ struct parameters
     double prob_loss;
     double prob_asym;
     double prob_self;
+    double prob_fusion;
     unsigned int end_order;
     unsigned int iterations;
 } param;
@@ -595,11 +596,11 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=7)
+    if (argc!=8)
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
-                "<end order> <iterations>"<<endl;
+                "<probability of fusion> <end order> <iterations>"<<endl;
         exit(1);
     }
 
@@ -609,8 +610,9 @@ int main(int argc, char* argv[])
     param.prob_loss=atof(argv[2]);      //Probability of loss of redundancy (subfunctionalization)
     param.prob_asym=atof(argv[3]);      //Probability of assymetry
     param.prob_self=atof(argv[4]);      //Probability of homomeric subfunctionalization
-    param.end_order=atoi(argv[5]);      //Order at which to stop
-    param.iterations=atoi(argv[6]);     //Number of times to run algorithm
+    param.prob_fusion=atof(argv[5]);    //Probability of fusion
+    param.end_order=atoi(argv[6]);      //Order at which to stop
+    param.iterations=atoi(argv[7]);     //Number of times to run algorithm
     
 
     //Input validation
@@ -627,6 +629,11 @@ int main(int argc, char* argv[])
     if (param.prob_self<0.0 || param.prob_self>1.0)
     {
         cerr<<"Error: Probability of homomeric subfunctionalization must be between 0 and 1"<<endl;
+        exit(1);
+    }
+    if (param.prob_fusion<0.0 || param.prob_self>1.0)
+    {
+        cerr<<"Error: Probability of fusion must be between 0 and 1"<<endl;
         exit(1);
     }
     if (param.iterations<0)
