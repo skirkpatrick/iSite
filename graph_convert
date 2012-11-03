@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+
+if ARGV.size != 2
+    puts "USAGE: ./graph_convert <input file> <output file>"
+    exit
+end
+
+ifile = File.open(ARGV[0], "r")
+ofile = File.open(ARGV[1], "w+")
+site = Hash.new
+
+while ifile.readline =~ /Fam/
+end
+
+ifile.each do |line|
+    split_str = line.split
+    if split_str[1] == 'double'
+        ofile.print split_str[0] + ' '
+        if site[split_str[0]]
+            site[split_str[0]] += 1
+        else
+            site[split_str[0]] = 0
+        end
+        ofile.print 'site' + site[split_str[0]].to_s + ':'
+        if site[split_str[2]]
+            site[split_str[2]] += 1
+        else
+            site[split_str[2]] = 0
+        end
+        ofile.puts 'site' + site[split_str[2]].to_s + ' ' + split_str[2]
+    else
+        ofile.print split_str[0] + ' '
+        if site[split_str[0]]
+            site[split_str[0]] += 1
+        else
+            site[split_str[0]] = 0
+        end
+        ofile.print 'site' + site[split_str[0]].to_s + ':'
+        ofile.puts 'site' + site[split_str[0]].to_s + ' ' + split_str[0]
+    end
+end
