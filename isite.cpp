@@ -208,7 +208,7 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
     uniform_real<> real_dist(0.0, 1.0);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     //Make 'while' to do arbitrary number of nodes
-    if (0)//rand_real() <= param.prob_fusion)
+    if (rand_real() <= param.prob_fusion)
     {
         Graph::vertex_descriptor progenitor;
         while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
