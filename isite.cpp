@@ -10,7 +10,7 @@
 #include<algorithm> //for copying vectors
 #include<unistd.h>  //for better random seed
 #include<cassert>   //for debugging
-#include<stack>     //for printing predecessors
+#include<set>
 
 
 #include<boost/graph/adjacency_list.hpp>
@@ -19,6 +19,7 @@
 #include<boost/random.hpp>
 #include<boost/generator_iterator.hpp>
 #include<boost/graph/random.hpp>
+#include<boost/lexical_cast.hpp>
 
 using namespace std;
 using namespace boost;
@@ -28,9 +29,6 @@ enum output_type {PRINT, NODE_SUMMARY, STATUS, EVOLUTION};
 typedef adjacency_list_traits<listS,listS,undirectedS>::edge_descriptor edge_descriptor;
 typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex_descriptor;
 
-vector<int> pred;                   //shows predecessor chain of nodes
-                                    //index - node's id : value - parent's id it was copied from
-                                    //seed graph nodes - value = -1
 int nSelfLoops=0;
 double asymmetry=0.0;
 int nDuplications=0;
@@ -202,6 +200,112 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 
 
 /*
+    Fuses duplications of two nodes
+*/
+Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
+{
+    progenitors.push_back(random_vertex(graph, rng));
+    Graph::vertex_descriptor progenitor;
+    while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
+    progenitors.push_back(progenitor);
+
+#ifdef DEBUG
+    cout << "**Duplication**" << endl;
+    for (int i=0; i<progenitors.size(); ++i)
+        cout << "Parent: " << indexmap(progenitors[i]) << endl;
+#endif
+
+    //get a new vertex
+    Graph::vertex_descriptor progeny = add_vertex(graph);
+    put(indexmap, progeny, counter++);
+
+#ifdef DEBUG
+    cout << "Child: " << indexmap(progeny) << endl;
+#endif
+
+    //copy edges and isites
+    int totalSites=0;
+    for (vector<Graph::vertex_descriptor>::iterator it = progenitors.begin();
+            it != progenitors.end(); ++it)
+    {
+        int numSites = graph[*it].sites.size();
+        for (int i=0; i < numSites; ++totalSites, ++i)
+        {
+            isite newSite;
+            newSite.age = 0;
+            newSite.site_name = lexical_cast<string>(indexmap(*it)) + "." + graph[*it].sites[i].site_name;
+
+            int siteEdges = graph[*it].sites[i].edges.size();
+            for (int j=0; j < siteEdges; j++) //cycle through edges
+            {
+                Graph::edge_descriptor original_edge;
+                original_edge = graph[*it].sites[i].edges[j];
+                if (edgeDest(*it, original_edge, graph) == progeny) continue;
+
+                //self loop
+                if (graph[*it].edgeToSite[original_edge] == -1)
+                {
+                    ++nSelfLoops;
+                    int site1 = graph[*it].selfLoops[original_edge].first;
+                    int site2 = graph[*it].selfLoops[original_edge].second;
+                    //self loop on same node
+                    if (site1 == site2)
+                    {
+                        Graph::edge_descriptor ed, ed_tie;
+                        bool temp_bool;
+                        //copy self loop
+                        tie(ed, temp_bool) = add_edge(progeny, progeny, graph);
+
+                        //create edge between parent and child
+                        tie(ed_tie, temp_bool) = add_edge(*it, progeny, graph);
+
+                        //update child site
+                        newSite.edges.push_back(ed);
+                        newSite.edges.push_back(ed_tie);
+                        graph[progeny].edgeToSite[ed] = -1;
+                        graph[progeny].selfLoops[ed] = make_pair(totalSites, totalSites);
+                        graph[progeny].edgeToSite[ed_tie] = totalSites;
+
+                        //update parent site
+                        graph[*it].sites[i].edges.push_back(ed_tie);
+                        graph[*it].edgeToSite[ed_tie] = i;
+                    }
+                    //self loop on different nodes
+                    else
+                    {
+                        assert(0==1);
+                    }
+                }
+                else
+                {
+                
+                    Graph::edge_descriptor ed, ed2;
+                    bool temp_bool;
+                    Graph::vertex_descriptor vd = edgeDest(*it, original_edge, graph);
+
+                    tie(ed, temp_bool) = add_edge(progeny,vd,graph);
+
+                    //update child iSite
+                    newSite.edges.push_back(ed);
+                    graph[progeny].edgeToSite[ed]=totalSites;
+
+                    //update other node's iSite
+                    ed2 = graph[*it].sites[i].edges[j];
+                    graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
+                    graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
+
+                }
+            }
+
+            graph[progeny].sites.push_back(newSite);
+        }
+    }
+
+    return progeny;
+}
+
+
+/*
     Completely duplicates a random node along with iSites and edges
 */
 pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
@@ -294,9 +398,6 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
         graph[child_description].sites.push_back(newSite);
     }
 
-    //update pred[] for child
-    pred.push_back(indexmap(parent_description));
-
     //return parent, child
     pair<Graph::vertex_descriptor, Graph::vertex_descriptor> tmpPair;
     tmpPair = std::make_pair(parent_description, child_description);
@@ -314,7 +415,7 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
 void duplication(Graph& graph, vimap& indexmap)
 {
     ++nDuplications;
-    uniform_real<> real_dist(0, 1);
+    uniform_real<> real_dist(0.0, 1.0);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
     vertices=duplicate(graph, indexmap);
@@ -569,26 +670,6 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
             }
         break;
         
-        case EVOLUTION:
-            cout << endl << label << endl;
-            for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
-            {
-                stack<int> predStack;
-                int curNum = indexmap(*vi);
-                cout << curNum << ": ";
-                while(pred[curNum] != -1) 
-                {
-                    predStack.push(pred[curNum]);
-                    curNum = pred[curNum];
-                }
-                while (!predStack.empty())
-                {
-                    cout << predStack.top() << "->";
-                    predStack.pop();
-                }
-                cout << indexmap(*vi) << endl;
-            }
-        break;
         default:
 
         break;
@@ -726,14 +807,12 @@ int main(int argc, char* argv[])
                 newNode1 = true;
                 nodes[v1]=counter+1;
                 put(indexmap, add_vertex(graph), counter++);
-                pred.push_back(-1);
             }
             if(nodes[v2]==0)
             {
                 newNode2 = true;
                 nodes[v2]=counter+1;
                 put(indexmap, add_vertex(graph), counter++);
-                pred.push_back(-1);
             }
 
             //Add edge
@@ -821,7 +900,9 @@ int main(int argc, char* argv[])
         while (num_vertices(graph)<param.end_order)
         {
             addAge(graph);
-            duplication(graph, indexmap);
+            //duplication(graph, indexmap);
+            vector<Graph::vertex_descriptor> vt;
+            duplicate(graph, indexmap, vt);
 
             output_info(graph, indexmap, "***Graph during algorithm***", PRINT); 
             output_info(graph, indexmap, "", STATUS); 
