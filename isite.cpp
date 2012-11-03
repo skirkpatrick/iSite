@@ -331,11 +331,11 @@ void duplication(Graph& graph, vimap& indexmap)
     {
         Graph::vertex_descriptor vertexLoss;
 
-        double rand_res = rand_real();
+        //double rand_res = rand_real();
 #ifdef DEBUG
         cout<<"\niSite: "<<graph[vertices.first].sites[i].site_name<<endl;
 #endif
-        if (rand_res <= param.prob_asym) //Parent loss
+        if (rand_real() <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
             cout<<"Asymmetry: Progenitor"<<endl;
@@ -368,8 +368,8 @@ void duplication(Graph& graph, vimap& indexmap)
                 prob_loss = param.prob_loss;
             else
                 prob_loss = param.prob_self;
-            rand_res = rand_real();
-            if (rand_res <= prob_loss) //Edge is lost
+            //rand_res = rand_real();
+            if (rand_real() <= prob_loss) //Edge is lost
             {
 #ifdef DEBUG
                 cout<<": Yes"<<endl;
@@ -460,9 +460,9 @@ void duplication(Graph& graph, vimap& indexmap)
     double thisAsym;
     if (actualAsym.first+actualAsym.second != 0)
         if (actualAsym.first > actualAsym.second)
-            thisAsym = actualAsym.first / (actualAsym.first+actualAsym.second);
+            thisAsym = (double)actualAsym.first / ((double)actualAsym.first+(double)actualAsym.second);
         else
-            thisAsym = actualAsym.second / (actualAsym.first+actualAsym.second);
+            thisAsym = (double)actualAsym.second / ((double)actualAsym.first+(double)actualAsym.second);
     else
         thisAsym = .5;
     asymmetry = asymmetry*(((double)nDuplications-1.0)/(double)nDuplications)+thisAsym*(1.0/(double)nDuplications);
@@ -624,8 +624,6 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    Graph graph;                        //Protein network
-    vimap indexmap = get(vertex_index, graph);
     param.infile=argv[1];               //Seed graph
     param.prob_loss=atof(argv[2]);      //Probability of loss of redundancy (subfunctionalization)
     param.prob_asym=atof(argv[3]);      //Probability of assymetry
@@ -662,137 +660,9 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    ifstream infile(param.infile.c_str());
-    if (!infile)
-    {
-        cerr<<"Error opening specified seed graph!"<<endl;
-        exit(1);
-    }
-
-    bool newNode1 = false;
-    bool newNode2 = false;
-    map<string,int> nodes;
-    counter=0;
-    string v1,v2, s1, s2, tmpStr;
-    rng.seed(time(NULL)*getpid());
-    
-#ifdef DEBUG
-    cout << "***Building graph from file***" << endl;
-#endif
-
-    //Building seed graph
-    while( !(getline(infile, tmpStr)).eof() )
-    {
-//expected input "v1 s1:s2 v2"
-//Parse input
-        newNode1 = false;
-        newNode2 = false;
-
-        //strtok might be cleaner
-        v1 = tmpStr.substr(0,tmpStr.find(" "));
-        tmpStr.erase(0,v1.size()+1);
-        s1 = tmpStr.substr(0,tmpStr.find(":"));
-        tmpStr.erase(0,s1.size()+1);
-        s2 = tmpStr.substr(0,tmpStr.find(" "));
-        tmpStr.erase(0,s2.size()+1);
-        v2 = tmpStr;
-
-#ifdef DEBUG
-        cout << v1 << ":" << s1 << "<->" << s2 << ":" << v2 << endl;
-#endif
-
-        //Create nodes if don't exist
-        if(nodes[v1]==0)
-        {
-            newNode1 = true;
-            nodes[v1]=counter+1;
-            put(indexmap, add_vertex(graph), counter++);
-            pred.push_back(-1);
-        }
-        if(nodes[v2]==0)
-        {
-            newNode2 = true;
-            nodes[v2]=counter+1;
-            put(indexmap, add_vertex(graph), counter++);
-            pred.push_back(-1);
-        }
-
-        //Add edge
-        Graph::vertex_descriptor vd1 = vertex(nodes[v1]-1,graph);
-        Graph::vertex_descriptor vd2 = vertex(nodes[v2]-1,graph);
-        Graph::edge_descriptor ed;
-
-
-        bool temp_bool;
-        tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
-        pair<int,int> edge_site_indices;
-
-        //Add iSite
-        map<string, int>::iterator known_site_it;
-        known_site_it = graph[vd1].site_name_to_index.find(s1);
-            //if site has not been added to this node before
-        if (known_site_it == graph[vd1].site_name_to_index.end())
-        {
-                //make new iSite with new edge in it
-            graph[vd1].sites.push_back(isite(ed,0, s1));
-                //set edgeToSite for new edge
-            edge_site_indices.first = graph[vd1].sites.size()-1;
-            graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
-                //set site_name_to_index for new iSite
-            graph[vd1].site_name_to_index.insert(make_pair(s1, graph[vd1].sites.size()-1));
-        }
-            //if site is already on the node - just add edge to it
-        else
-        {
-                //insert new edge in iSite
-            graph[vd1].sites[known_site_it->second].edges.push_back(ed);
-                //set edgeToSite for new edge
-            edge_site_indices.first = known_site_it->second;
-            graph[vd1].edgeToSite.insert(make_pair(ed, known_site_it->second));
-        }
-
-        if (!((v1==v2) && (s1==s2))) //check for self loops and same iSite
-        {
-            known_site_it = graph[vd2].site_name_to_index.find(s2);
-                //if site has not been added to this node before
-            if (known_site_it == graph[vd2].site_name_to_index.end())
-            {
-                    //make new iSite with new edge in it
-                graph[vd2].sites.push_back(isite(ed,0, s2));
-                    //set edgeToSite for new edge
-                edge_site_indices.second = graph[vd2].sites.size()-1;
-                graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
-                    //set site_name_to_index for new iSite
-                graph[vd2].site_name_to_index.insert(make_pair(s2, graph[vd2].sites.size()-1));
-            }
-                //if site is already on the node - just add edge to it
-            else
-            {
-                    //insert new edge in iSite
-                graph[vd2].sites[known_site_it->second].edges.push_back(ed);
-                    //set edgeToSite for new edge
-                edge_site_indices.second = known_site_it->second;
-                graph[vd2].edgeToSite.insert(make_pair(ed, known_site_it->second));
-            }
-        }
-        else
-        {
-            edge_site_indices.second = edge_site_indices.first;
-        }
-
-        //self loops
-        if (v1==v2)
-        {
-            ++nSelfLoops;
-            graph[vd1].edgeToSite[ed] = -1;
-            graph[vd1].selfLoops.insert(make_pair(ed, edge_site_indices));
-        }
-		
-    }
-
-    output_info(graph, indexmap, "***Original graph***", PRINT); 
-
+    /*******Iteration***********/
     int iterations=param.iterations;
+    rng.seed(time(NULL)*getpid());
 
     //Opening output file
     ofstream outfile("result");
@@ -805,6 +675,142 @@ int main(int argc, char* argv[])
 
     while (param.iterations--) //needs to encompass building seed graph, too
     {
+
+        //Opening input file
+        ifstream infile(param.infile.c_str());
+        if (!infile)
+        {
+            cerr<<"Error opening specified seed graph!"<<endl;
+            exit(1);
+        }
+
+        Graph graph;                        //Protein network
+        vimap indexmap = get(vertex_index, graph);
+        bool newNode1 = false;
+        bool newNode2 = false;
+        map<string,int> nodes;
+        counter=0;
+        string v1,v2, s1, s2, tmpStr;
+        nSelfLoops=0;
+        asymmetry=0.0;
+        nDuplications=0;
+                
+#ifdef DEBUG
+    cout << "***Building graph from file***" << endl;
+#endif
+
+        //Building seed graph
+        while( !(getline(infile, tmpStr)).eof() )
+        {
+    //expected input "v1 s1:s2 v2"
+    //Parse input
+            newNode1 = false;
+            newNode2 = false;
+
+            //strtok might be cleaner
+            v1 = tmpStr.substr(0,tmpStr.find(" "));
+            tmpStr.erase(0,v1.size()+1);
+            s1 = tmpStr.substr(0,tmpStr.find(":"));
+            tmpStr.erase(0,s1.size()+1);
+            s2 = tmpStr.substr(0,tmpStr.find(" "));
+            tmpStr.erase(0,s2.size()+1);
+            v2 = tmpStr;
+
+#ifdef DEBUG
+        cout << v1 << ":" << s1 << "<->" << s2 << ":" << v2 << endl;
+#endif
+
+            //Create nodes if don't exist
+            if(nodes[v1]==0)
+            {
+                newNode1 = true;
+                nodes[v1]=counter+1;
+                put(indexmap, add_vertex(graph), counter++);
+                pred.push_back(-1);
+            }
+            if(nodes[v2]==0)
+            {
+                newNode2 = true;
+                nodes[v2]=counter+1;
+                put(indexmap, add_vertex(graph), counter++);
+                pred.push_back(-1);
+            }
+
+            //Add edge
+            Graph::vertex_descriptor vd1 = vertex(nodes[v1]-1,graph);
+            Graph::vertex_descriptor vd2 = vertex(nodes[v2]-1,graph);
+            Graph::edge_descriptor ed;
+
+
+            bool temp_bool;
+            tie(ed, temp_bool) = add_edge(vd1,vd2,graph);
+            pair<int,int> edge_site_indices;
+
+            //Add iSite
+            map<string, int>::iterator known_site_it;
+            known_site_it = graph[vd1].site_name_to_index.find(s1);
+                //if site has not been added to this node before
+            if (known_site_it == graph[vd1].site_name_to_index.end())
+            {
+                    //make new iSite with new edge in it
+                graph[vd1].sites.push_back(isite(ed,0, s1));
+                    //set edgeToSite for new edge
+                edge_site_indices.first = graph[vd1].sites.size()-1;
+                graph[vd1].edgeToSite.insert(make_pair(ed, graph[vd1].sites.size()-1));
+                    //set site_name_to_index for new iSite
+                graph[vd1].site_name_to_index.insert(make_pair(s1, graph[vd1].sites.size()-1));
+            }
+                //if site is already on the node - just add edge to it
+            else
+            {
+                    //insert new edge in iSite
+                graph[vd1].sites[known_site_it->second].edges.push_back(ed);
+                    //set edgeToSite for new edge
+                edge_site_indices.first = known_site_it->second;
+                graph[vd1].edgeToSite.insert(make_pair(ed, known_site_it->second));
+            }
+
+            if (!((v1==v2) && (s1==s2))) //check for self loops and same iSite
+            {
+                known_site_it = graph[vd2].site_name_to_index.find(s2);
+                    //if site has not been added to this node before
+                if (known_site_it == graph[vd2].site_name_to_index.end())
+                {
+                        //make new iSite with new edge in it
+                    graph[vd2].sites.push_back(isite(ed,0, s2));
+                        //set edgeToSite for new edge
+                    edge_site_indices.second = graph[vd2].sites.size()-1;
+                    graph[vd2].edgeToSite.insert(make_pair(ed, graph[vd2].sites.size()-1));
+                        //set site_name_to_index for new iSite
+                    graph[vd2].site_name_to_index.insert(make_pair(s2, graph[vd2].sites.size()-1));
+                }
+                    //if site is already on the node - just add edge to it
+                else
+                {
+                        //insert new edge in iSite
+                    graph[vd2].sites[known_site_it->second].edges.push_back(ed);
+                        //set edgeToSite for new edge
+                    edge_site_indices.second = known_site_it->second;
+                    graph[vd2].edgeToSite.insert(make_pair(ed, known_site_it->second));
+                }
+            }
+            else
+            {
+                edge_site_indices.second = edge_site_indices.first;
+            }
+
+            //self loops
+            if (v1==v2)
+            {
+                ++nSelfLoops;
+                graph[vd1].edgeToSite[ed] = -1;
+                graph[vd1].selfLoops.insert(make_pair(ed, edge_site_indices));
+            }
+            
+        }
+
+        output_info(graph, indexmap, "***Original graph***", PRINT); 
+
 #ifdef DEBUG
         cout << "Iteration: " << iterations-param.iterations << endl;
 #endif
@@ -831,7 +837,7 @@ int main(int argc, char* argv[])
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
-        outfile<<asymmetry<<" ";
+        outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
         outfile<<num_edges(graph)<<" ";
@@ -839,16 +845,15 @@ int main(int argc, char* argv[])
         int numTriples=countTriples(graph);
         outfile<<numTriangles<<" ";
         outfile<<numTriples<<" ";
-        outfile<<(double)(3*numTriangles)/numTriples<<" ";
+        outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples<<" ";
         outfile<<components(graph, indexmap);
         outfile<<endl;
 
+        output_info(graph, indexmap, "***Node Evolution***", EVOLUTION); 
+
+        infile.close();
     }
-
-    output_info(graph, indexmap, "***Node Evolution***", EVOLUTION); 
-
     outfile.close();
-    infile.close();
 }
 
 
