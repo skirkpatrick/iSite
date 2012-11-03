@@ -818,6 +818,7 @@ int main(int argc, char* argv[])
 
 #ifdef NDEBUG
         cout<<endl;
+        cout<<"Generating results"<<endl;
 #endif
 	
         outfile<<param.prob_loss<<" ";
