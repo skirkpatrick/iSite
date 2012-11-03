@@ -1,8 +1,8 @@
 iSite: isite.cpp
-	g++ -g isite.cpp -DNDEBUG -o iSite
+	g++ -g isite.cpp -DNDEBUG -o iSite -Wall -pedantic
 
 debug: isite.cpp
-	g++ -g isite.cpp -DDEBUG -o iSite
+	g++ -g isite.cpp -DDEBUG -o iSite -Wall -pedantic
 
 clean:
 	rm -f iSite
