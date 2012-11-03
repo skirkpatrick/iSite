@@ -205,9 +205,15 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
 {
     progenitors.push_back(random_vertex(graph, rng));
-    Graph::vertex_descriptor progenitor;
-    while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
-    progenitors.push_back(progenitor);
+    uniform_real<> real_dist(0.0, 1.0);
+    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
+    //Make 'while' to do arbitrary number of nodes
+    if (0)//rand_real() <= param.prob_fusion)
+    {
+        Graph::vertex_descriptor progenitor;
+        while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
+        progenitors.push_back(progenitor);
+    }
 
 #ifdef DEBUG
     cout << "**Duplication**" << endl;
@@ -306,106 +312,6 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
 
 
 /*
-    Completely duplicates a random node along with iSites and edges
-*/
-pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
-                                                               vimap& indexmap)
-{
-    Graph::vertex_descriptor parent_description = random_vertex(graph, rng);
-
-#ifdef DEBUG
-    cout << "**Duplication**" << endl;
-    cout << "Parent: " << indexmap(parent_description)<<endl;
-#endif
-
-    //get a new vertex
-    Graph::vertex_descriptor child_description = add_vertex(graph);
-    put(indexmap, child_description, counter++);
-
-#ifdef DEBUG
-    cout << "Child: " << indexmap(child_description) << endl;
-#endif
-
-    //copy edges and isites
-    int numSites = graph[parent_description].sites.size();
-    for (int i=0; i < numSites; i++) //cycle through sites
-    {
-        isite newSite;
-        newSite.age=0;
-        newSite.site_name = graph[parent_description].sites[i].site_name;
-
-        int siteEdges = graph[parent_description].sites[i].edges.size();
-        for (int j=0; j < siteEdges; j++) //cycle through edges
-        {
-            Graph::edge_descriptor parent_edge;
-            parent_edge = graph[parent_description].sites[i].edges[j];
-            //self loop
-            if (graph[parent_description].edgeToSite[parent_edge] == -1)
-            {
-                ++nSelfLoops;
-                int site1 = graph[parent_description].selfLoops[parent_edge].first;
-                int site2 = graph[parent_description].selfLoops[parent_edge].second;
-                //self loop on same node
-                if (site1 == site2)
-                {
-                    Graph::edge_descriptor ed, ed_tie;
-                    bool temp_bool;
-                    //copy self loop
-                    tie(ed, temp_bool) = add_edge(child_description, child_description, graph);
-
-                    //create edge between parent and child
-                    tie(ed_tie, temp_bool) = add_edge(parent_description, child_description, graph);
-
-                    //update child site
-                    newSite.edges.push_back(ed);
-                    newSite.edges.push_back(ed_tie);
-                    graph[child_description].edgeToSite[ed] = -1;
-                    graph[child_description].selfLoops[ed] = make_pair(i, i);
-                    graph[child_description].edgeToSite[ed_tie] = i;
-
-                    //update parent site
-                    graph[parent_description].sites[i].edges.push_back(ed_tie);
-                    graph[parent_description].edgeToSite[ed_tie] = i;
-                }
-                //self loop on different nodes
-                else
-                {
-                    assert(0==1);
-                }
-            }
-            else
-            {
-            
-                Graph::edge_descriptor ed, ed2;
-                bool temp_bool;
-                Graph::vertex_descriptor vd = edgeDest(parent_description,
-                    parent_edge, graph);
-
-                tie(ed, temp_bool) = add_edge(child_description,vd,graph);
-
-                //update child iSite
-                newSite.edges.push_back(ed);
-                graph[child_description].edgeToSite[ed]=i;
-
-                //update other node's iSite
-                ed2 = graph[parent_description].sites[i].edges[j];
-                graph[vd].sites[graph[vd].edgeToSite[ed2]].edges.push_back(ed);
-                graph[vd].edgeToSite[ed]=graph[vd].edgeToSite[ed2];
-
-            }
-        }
-
-        graph[child_description].sites.push_back(newSite);
-    }
-
-    //return parent, child
-    pair<Graph::vertex_descriptor, Graph::vertex_descriptor> tmpPair;
-    tmpPair = std::make_pair(parent_description, child_description);
-    return tmpPair; 
-}
-
-
-/*
     Performs iSite algorithm
     1)Duplicate random node
     2)For each iSite, use prob_asym to choose parent or child
@@ -417,12 +323,13 @@ void duplication(Graph& graph, vimap& indexmap)
     ++nDuplications;
     uniform_real<> real_dist(0.0, 1.0);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
-    pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
-    vertices=duplicate(graph, indexmap);
+    vector<Graph::vertex_descriptor> progenitors;
+    Graph::vertex_descriptor progeny;
+    progeny=duplicate(graph, indexmap, progenitors);
 
     //prob_asym
     pair<int,int> actualAsym(0,0); //progenitor,progeny asymmetry
-    int numSites = graph[vertices.first].sites.size();
+    int numSites = graph[progenitors[0]].sites.size();
 
 #ifdef DEBUG
     cout<<"iSites: "<<numSites<<endl;
@@ -434,21 +341,21 @@ void duplication(Graph& graph, vimap& indexmap)
 
         //double rand_res = rand_real();
 #ifdef DEBUG
-        cout<<"\niSite: "<<graph[vertices.first].sites[i].site_name<<endl;
+        cout<<"\niSite: "<<graph[progenitors[0]].sites[i].site_name<<endl;
 #endif
         if (rand_real() <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
             cout<<"Asymmetry: Progenitor"<<endl;
 #endif
-            vertexLoss = vertices.first;
+            vertexLoss = progenitors[0];
         }
         else //Child loss
         {
 #ifdef DEBUG
             cout<<"Asymmetry: Progeny"<<endl;
 #endif
-            vertexLoss = vertices.second;
+            vertexLoss = progeny;
         }
 
         //prob_loss
@@ -475,7 +382,7 @@ void duplication(Graph& graph, vimap& indexmap)
 #ifdef DEBUG
                 cout<<": Yes"<<endl;
 #endif
-                vertexLoss==vertices.first ? ++actualAsym.first : ++actualAsym.second;
+                vertexLoss==progenitors[0] ? ++actualAsym.first : ++actualAsym.second;
 
                 //Remove from vertexLoss
                 graph[vertexLoss].edgeToSite.erase(edgeLoss);
@@ -517,13 +424,13 @@ void duplication(Graph& graph, vimap& indexmap)
     //Check parent and child for empty iSites
     int j=numSites;
     for (int i=0; i<j; ++i)
-        if (graph[vertices.first].sites[i].edges.size()==0)
+        if (graph[progenitors[0]].sites[i].edges.size()==0)
         {
-            graph[vertices.first].sites.erase(
-                graph[vertices.first].sites.begin() + i);
+            graph[progenitors[0]].sites.erase(
+                graph[progenitors[0]].sites.begin() + i);
             map<edge_descriptor,int>::iterator mit;
-            for (mit=graph[vertices.first].edgeToSite.begin();
-                 mit!=graph[vertices.first].edgeToSite.end();
+            for (mit=graph[progenitors[0]].edgeToSite.begin();
+                 mit!=graph[progenitors[0]].edgeToSite.end();
                  mit++)
             {
                 if (mit->second > i) mit->second--;
@@ -532,13 +439,13 @@ void duplication(Graph& graph, vimap& indexmap)
             --j;
         }
     for (int i=0; i<numSites; ++i)
-        if (graph[vertices.second].sites[i].edges.size()==0)
+        if (graph[progeny].sites[i].edges.size()==0)
         {
-            graph[vertices.second].sites.erase(
-                graph[vertices.second].sites.begin() + i);
+            graph[progeny].sites.erase(
+                graph[progeny].sites.begin() + i);
             map<edge_descriptor,int>::iterator mit;
-            for (mit=graph[vertices.second].edgeToSite.begin();
-                 mit!=graph[vertices.second].edgeToSite.end();
+            for (mit=graph[progeny].edgeToSite.begin();
+                 mit!=graph[progeny].edgeToSite.end();
                  mit++)
             {
                 if (mit->second > i) mit->second--;
@@ -548,13 +455,13 @@ void duplication(Graph& graph, vimap& indexmap)
         }
 
     //If node has no iSites (and therefore no edges), delete it
-    if (graph[vertices.first].sites.empty())
+    if (graph[progenitors[0]].sites.empty())
     {
-        remove_vertex(vertices.first, graph);
+        remove_vertex(progenitors[0], graph);
     }
-    else if (graph[vertices.second].sites.empty())
+    else if (graph[progeny].sites.empty())
     {
-        remove_vertex(vertices.second, graph);
+        remove_vertex(progeny, graph);
     }
 
     //Update actual asymmetry
@@ -900,9 +807,7 @@ int main(int argc, char* argv[])
         while (num_vertices(graph)<param.end_order)
         {
             addAge(graph);
-            //duplication(graph, indexmap);
-            vector<Graph::vertex_descriptor> vt;
-            duplicate(graph, indexmap, vt);
+            duplication(graph, indexmap);
 
             output_info(graph, indexmap, "***Graph during algorithm***", PRINT); 
             output_info(graph, indexmap, "", STATUS); 
