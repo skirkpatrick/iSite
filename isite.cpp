@@ -32,6 +32,8 @@ vector<int> pred;                   //shows predecessor chain of nodes
                                     //index - node's id : value - parent's id it was copied from
                                     //seed graph nodes - value = -1
 int nSelfLoops=0;
+double asymmetry=0.0;
+int nDuplications=0;
 
 struct isite
 {
@@ -311,19 +313,21 @@ pair<Graph::vertex_descriptor,Graph::vertex_descriptor> duplicate(Graph& graph,
 */
 void duplication(Graph& graph, vimap& indexmap)
 {
+    ++nDuplications;
     uniform_real<> real_dist(0, 1);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     pair<Graph::vertex_descriptor,Graph::vertex_descriptor> vertices;
     vertices=duplicate(graph, indexmap);
 
     //prob_asym
+    pair<int,int> actualAsym(0,0); //progenitor,progeny asymmetry
     int numSites = graph[vertices.first].sites.size();
 
 #ifdef DEBUG
     cout<<"iSites: "<<numSites<<endl;
 #endif
 
-    for (int i=0; i<numSites; i++)
+    for (int i=0; i<numSites; ++i)
     {
         Graph::vertex_descriptor vertexLoss;
 
@@ -334,14 +338,14 @@ void duplication(Graph& graph, vimap& indexmap)
         if (rand_res <= param.prob_asym) //Parent loss
         {
 #ifdef DEBUG
-            cout<<"Asymmetry: Parent"<<endl;
+            cout<<"Asymmetry: Progenitor"<<endl;
 #endif
             vertexLoss = vertices.first;
         }
         else //Child loss
         {
 #ifdef DEBUG
-            cout<<"Asymmetry: Child"<<endl;
+            cout<<"Asymmetry: Progeny"<<endl;
 #endif
             vertexLoss = vertices.second;
         }
@@ -351,7 +355,7 @@ void duplication(Graph& graph, vimap& indexmap)
 #ifdef DEBUG
         cout<< "Edges: " << numEdges << endl;
 #endif
-        for (int j=0; j<numEdges; j++)
+        for (int j=0; j<numEdges; ++j)
         {
 #ifdef DEBUG
             cout<<"\tLoss ";
@@ -370,6 +374,8 @@ void duplication(Graph& graph, vimap& indexmap)
 #ifdef DEBUG
                 cout<<": Yes"<<endl;
 #endif
+                vertexLoss==vertices.first ? ++actualAsym.first : ++actualAsym.second;
+
                 //Remove from vertexLoss
                 graph[vertexLoss].edgeToSite.erase(edgeLoss);
                 graph[vertexLoss].sites[i].edges.erase(
@@ -384,7 +390,7 @@ void duplication(Graph& graph, vimap& indexmap)
                     int connectedSite = graph[connectedVertex].edgeToSite[edgeLoss];
                     int connectedSiteSize = graph[connectedVertex].sites[connectedSite].edges.size();
                     int k;
-                    for (k=0; k<connectedSiteSize; k++)
+                    for (k=0; k<connectedSiteSize; ++k)
                     {
                         if (graph[connectedVertex].sites[connectedSite].edges[k]==edgeLoss)
                             break;
@@ -396,8 +402,8 @@ void duplication(Graph& graph, vimap& indexmap)
                 else --nSelfLoops;
 
                 remove_edge(edgeLoss, graph);
-                j--;
-                numEdges--;
+                --j;
+                --numEdges;
             }
 #ifdef DEBUG
             else cout<<": No"<<endl;
@@ -409,7 +415,7 @@ void duplication(Graph& graph, vimap& indexmap)
 
     //Check parent and child for empty iSites
     int j=numSites;
-    for (int i=0; i<j; i++)
+    for (int i=0; i<j; ++i)
         if (graph[vertices.first].sites[i].edges.size()==0)
         {
             graph[vertices.first].sites.erase(
@@ -421,10 +427,10 @@ void duplication(Graph& graph, vimap& indexmap)
             {
                 if (mit->second > i) mit->second--;
             }
-            i--;
-            j--;
+            --i;
+            --j;
         }
-    for (int i=0; i<numSites; i++)
+    for (int i=0; i<numSites; ++i)
         if (graph[vertices.second].sites[i].edges.size()==0)
         {
             graph[vertices.second].sites.erase(
@@ -436,8 +442,8 @@ void duplication(Graph& graph, vimap& indexmap)
             {
                 if (mit->second > i) mit->second--;
             }
-            i--;
-            numSites--;
+            --i;
+            --numSites;
         }
 
     //If node has no iSites (and therefore no edges), delete it
@@ -445,10 +451,21 @@ void duplication(Graph& graph, vimap& indexmap)
     {
         remove_vertex(vertices.first, graph);
     }
-    if (graph[vertices.second].sites.empty())
+    else if (graph[vertices.second].sites.empty())
     {
         remove_vertex(vertices.second, graph);
     }
+
+    //Update actual asymmetry
+    double thisAsym;
+    if (actualAsym.first+actualAsym.second != 0)
+        if (actualAsym.first > actualAsym.second)
+            thisAsym = actualAsym.first / (actualAsym.first+actualAsym.second);
+        else
+            thisAsym = actualAsym.second / (actualAsym.first+actualAsym.second);
+    else
+        thisAsym = .5;
+    asymmetry = asymmetry*(((double)nDuplications-1.0)/(double)nDuplications)+thisAsym*(1.0/(double)nDuplications);
 }
 
 /*
@@ -814,7 +831,7 @@ int main(int argc, char* argv[])
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
-        //actualAsymmetry needed
+        outfile<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
         outfile<<num_edges(graph)<<" ";
