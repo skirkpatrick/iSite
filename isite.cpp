@@ -39,13 +39,13 @@ struct isite
     vector<edge_descriptor> edges;
     unsigned int age;
 
-    isite() : site_name(""), age(0), edges()
+    isite() : site_name(""), edges(), age(0)
     {
     }
-    isite(const isite& is) : site_name(is.site_name), age(is.age), edges(is.edges)
+    isite(const isite& is) : site_name(is.site_name), edges(is.edges), age(is.age)
     {
     }
-    isite(edge_descriptor e, unsigned int a, string name) : age(a), site_name( name )
+    isite(edge_descriptor e, unsigned int a, string name) : site_name(name), age(a)
     {
         edges.push_back(e);
     }
@@ -217,7 +217,7 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
 
 #ifdef DEBUG
     cout << "**Duplication**" << endl;
-    for (int i=0; i<progenitors.size(); ++i)
+    for (unsigned int i=0; i<progenitors.size(); ++i)
         cout << "Parent: " << indexmap(progenitors[i]) << endl;
 #endif
 
@@ -329,7 +329,7 @@ void duplication(Graph& graph, vimap& indexmap)
 
     //prob_asym
     pair<int, int> actualAsym(0,0); //progenitor, progeny asymmetry
-    for (int pr=0, py=0; pr < progenitors.size(); ++pr)
+    for (unsigned int pr=0, py=0; pr < progenitors.size(); ++pr)
     {
         int numSites = graph[progenitors[pr]].sites.size();
         int site;
@@ -448,7 +448,7 @@ void duplication(Graph& graph, vimap& indexmap)
     }//cycle through progenitors
 
     //Check progeny for empty iSites
-    for (int i=0; i<graph[progeny].sites.size(); ++i)
+    for (int i=0, size=graph[progeny].sites.size(); i<size; ++i)
         if (graph[progeny].sites[i].edges.size()==0)
         {
             graph[progeny].sites.erase(
@@ -461,6 +461,7 @@ void duplication(Graph& graph, vimap& indexmap)
                 if (mit->second > i) mit->second--;
             }
             --i;
+            --size;
         }
     //If progeny has no iSites (and therefore no edges), delete it
     if (graph[progeny].sites.empty())
@@ -738,7 +739,7 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
             {
                 Graph::vertex_descriptor vd1 = *vi; 
                 cout<<"Node: " << indexmap(vd1) << endl;
-                for (int i=0; i != graph[vd1].sites.size(); i++)
+                for (unsigned int i=0; i != graph[vd1].sites.size(); i++)
                     cout<<"\t"<<graph[vd1].sites[i].site_name
                         <<":: Age: "<<graph[vd1].sites[i].age
                         <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;
@@ -818,7 +819,9 @@ int main(int argc, char* argv[])
     }
 
     /*******Iteration***********/
+#ifdef DEBUG
     int iterations=param.iterations;
+#endif
     rng.seed(time(NULL)*getpid());
 
     //Opening output file
