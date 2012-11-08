@@ -115,6 +115,30 @@ void printEdge(Graph& graph,
 
 
 /*
+    Removes parallel edges and self loops
+*/
+void simplify(Graph& graph)
+{
+    vertex_iterator vi, viend;
+    AdjIter adji, adjiend;
+
+    for (tie(vi, viend)=vertices(graph); vi!=viend; ++vi)
+    {
+        //Remove homomeric interactions
+        while (edge(*vi, *vi, graph).second)
+            remove_edge(*vi, *vi, graph);
+
+        //Remove parallel interactions
+        for (tie(adji, adjiend)=adjacent_vertices(*vi, graph); adji!=adjiend; ++adji)
+        {
+            while (edge(*vi, *adji, graph).first != edge(*adji, *vi, graph).first)
+                remove_edge(*vi, *adji, graph);
+        }
+    }
+}
+
+
+/*
     Counts the number of triangles in a graph
 */
 int triangles(Graph& graph)
@@ -133,7 +157,7 @@ int triangles(Graph& graph)
             for (adji2=adji; adji2!=adjiend; ++adji2)
             {
                 if (edge(*adji, *adji2, graph).second)
-                numTriangles++;
+                    numTriangles++;
             }
         }
     }
@@ -149,8 +173,8 @@ int countTriples(Graph& graph)
     vertex_iterator vi, viend;
     int numTriples=0;
 
-    for (tie(vi, viend)=vertices(graph); vi!=viend; vi++)
-        numTriples+=((degree(*vi, graph)*(degree(*vi,graph)-1))/2);
+    for (tie(vi, viend)=vertices(graph); vi!=viend; ++vi)
+        numTriples+=out_degree(*vi, graph)*(out_degree(*vi,graph)-1)/2;
     return numTriples;
 }
 
@@ -481,170 +505,6 @@ void duplication(Graph& graph, vimap& indexmap)
 }
 
 
-/*
-    Performs iSite algorithm
-    1)Duplicate random node
-    2)For each iSite, use prob_asym to choose parent or child
-    3)For each edge on chosen site, use prob_loss to determine if lost
-    4)Remove isolated vertices (vertex with degree=0)
-*/
-void oduplication(Graph& graph, vimap& indexmap)
-{
-    ++nDuplications;
-    uniform_real<> real_dist(0.0, 1.0);
-    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
-    vector<Graph::vertex_descriptor> progenitors;
-    Graph::vertex_descriptor progeny;
-    progeny=duplicate(graph, indexmap, progenitors);
-
-    //prob_asym
-    pair<int,int> actualAsym(0,0); //progenitor,progeny asymmetry
-    int numSites = graph[progenitors[0]].sites.size();
-
-#ifdef DEBUG
-    cout<<"iSites: "<<numSites<<endl;
-#endif
-
-    for (int i=0; i<numSites; ++i)
-    {
-        Graph::vertex_descriptor vertexLoss;
-
-        //double rand_res = rand_real();
-#ifdef DEBUG
-        cout<<"\niSite: "<<graph[progenitors[0]].sites[i].site_name<<endl;
-#endif
-        if (rand_real() <= param.prob_asym) //Parent loss
-        {
-#ifdef DEBUG
-            cout<<"Asymmetry: Progenitor"<<endl;
-#endif
-            vertexLoss = progenitors[0];
-        }
-        else //Child loss
-        {
-#ifdef DEBUG
-            cout<<"Asymmetry: Progeny"<<endl;
-#endif
-            vertexLoss = progeny;
-        }
-
-        //prob_loss
-        int numEdges = graph[vertexLoss].sites[i].edges.size();
-#ifdef DEBUG
-        cout<< "Edges: " << numEdges << endl;
-#endif
-        for (int j=0; j<numEdges; ++j)
-        {
-#ifdef DEBUG
-            cout<<"\tLoss ";
-            printEdge(graph, vertexLoss, graph[vertexLoss].sites[i].edges[j], indexmap);
-#endif
-            Graph::edge_descriptor edgeLoss;
-            edgeLoss = graph[vertexLoss].sites[i].edges[j];
-            double prob_loss;
-            if (source(edgeLoss, graph) != target(edgeLoss, graph))
-                prob_loss = param.prob_loss;
-            else
-                prob_loss = param.prob_self;
-            //rand_res = rand_real();
-            if (rand_real() <= prob_loss) //Edge is lost
-            {
-#ifdef DEBUG
-                cout<<": Yes"<<endl;
-#endif
-                vertexLoss==progenitors[0] ? ++actualAsym.first : ++actualAsym.second;
-
-                //Remove from vertexLoss
-                graph[vertexLoss].edgeToSite.erase(edgeLoss);
-                graph[vertexLoss].sites[i].edges.erase(
-                    graph[vertexLoss].sites[i].edges.begin()+j);
-
-                //Check for self loop
-                if (source(edgeLoss, graph) != target(edgeLoss, graph))
-                {
-                    //Update connected vertex
-                    Graph::vertex_descriptor connectedVertex;
-                    connectedVertex = edgeDest(vertexLoss, edgeLoss, graph);
-                    int connectedSite = graph[connectedVertex].edgeToSite[edgeLoss];
-                    int connectedSiteSize = graph[connectedVertex].sites[connectedSite].edges.size();
-                    int k;
-                    for (k=0; k<connectedSiteSize; ++k)
-                    {
-                        if (graph[connectedVertex].sites[connectedSite].edges[k]==edgeLoss)
-                            break;
-                    }
-                    graph[connectedVertex].edgeToSite.erase(edgeLoss);
-                    graph[connectedVertex].sites[connectedSite].edges.erase(
-                        graph[connectedVertex].sites[connectedSite].edges.begin()+k);
-                }
-                else --nSelfLoops;
-
-                remove_edge(edgeLoss, graph);
-                --j;
-                --numEdges;
-            }
-#ifdef DEBUG
-            else cout<<": No"<<endl;
-#endif
-
-        }//cycle through edges
-
-    }//cycle through iSites
-
-    //Check parent and child for empty iSites
-    int j=numSites;
-    for (int i=0; i<j; ++i)
-        if (graph[progenitors[0]].sites[i].edges.size()==0)
-        {
-            graph[progenitors[0]].sites.erase(
-                graph[progenitors[0]].sites.begin() + i);
-            map<edge_descriptor,int>::iterator mit;
-            for (mit=graph[progenitors[0]].edgeToSite.begin();
-                 mit!=graph[progenitors[0]].edgeToSite.end();
-                 mit++)
-            {
-                if (mit->second > i) mit->second--;
-            }
-            --i;
-            --j;
-        }
-    for (int i=0; i<numSites; ++i)
-        if (graph[progeny].sites[i].edges.size()==0)
-        {
-            graph[progeny].sites.erase(
-                graph[progeny].sites.begin() + i);
-            map<edge_descriptor,int>::iterator mit;
-            for (mit=graph[progeny].edgeToSite.begin();
-                 mit!=graph[progeny].edgeToSite.end();
-                 mit++)
-            {
-                if (mit->second > i) mit->second--;
-            }
-            --i;
-            --numSites;
-        }
-
-    //If node has no iSites (and therefore no edges), delete it
-    if (graph[progenitors[0]].sites.empty())
-    {
-        remove_vertex(progenitors[0], graph);
-    }
-    else if (graph[progeny].sites.empty())
-    {
-        remove_vertex(progeny, graph);
-    }
-
-    //Update actual asymmetry
-    double thisAsym;
-    if (actualAsym.first+actualAsym.second != 0)
-        if (actualAsym.first > actualAsym.second)
-            thisAsym = (double)actualAsym.first / ((double)actualAsym.first+(double)actualAsym.second);
-        else
-            thisAsym = (double)actualAsym.second / ((double)actualAsym.first+(double)actualAsym.second);
-    else
-        thisAsym = .5;
-    asymmetry = asymmetry*(((double)nDuplications-1.0)/(double)nDuplications)+thisAsym*(1.0/(double)nDuplications);
-}
 
 /*
     Increases age of every iSite by 1
@@ -831,7 +691,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: result"<<endl;
         exit(1);
     }
-    outfile << "subfuncProb asymmetry selfloopLoss actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
+    outfile << "subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
 
     while (param.iterations--) //needs to encompass building seed graph, too
     {
@@ -996,10 +856,12 @@ int main(int argc, char* argv[])
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
+        outfile<<param.prob_fusion<<" ";
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
         outfile<<num_edges(graph)<<" ";
+        simplify(graph);
         int numTriangles=triangles(graph);
         int numTriples=countTriples(graph);
         outfile<<numTriangles<<" ";
