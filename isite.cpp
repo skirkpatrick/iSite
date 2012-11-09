@@ -226,7 +226,7 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 /*
     Fuses duplications of two nodes
 */
-Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
+Graph::vertex_descriptor oduplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
 {
     progenitors.push_back(random_vertex(graph, rng));
     uniform_real<> real_dist(0.0, 1.0);
@@ -342,14 +342,14 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
     3)For each edge on chosen site, use prob_loss to determine if lost
     4)Remove isolated vertices (vertex with degree=0)
 */
-void duplication(Graph& graph, vimap& indexmap)
+void oduplication(Graph& graph, vimap& indexmap)
 {
     ++nDuplications;
     uniform_real<> real_dist(0.0, 1.0);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     vector<Graph::vertex_descriptor> progenitors;
     Graph::vertex_descriptor progeny;
-    progeny=duplicate(graph, indexmap, progenitors);
+    progeny=oduplicate(graph, indexmap, progenitors);
 
     //prob_asym
     pair<int, int> actualAsym(0,0); //progenitor, progeny asymmetry
@@ -364,7 +364,7 @@ void duplication(Graph& graph, vimap& indexmap)
 
         for (int i=0; i<numSites; ++i, ++py)
         {
-            Graph::vertex_descriptor vertexLoss;
+            Graph::vertex_descriptor vertexLoss, notLost;
 
 #ifdef DEBUG
             cout<<"\niSite: "<<graph[progeny].sites[py].site_name<<endl;
@@ -375,6 +375,7 @@ void duplication(Graph& graph, vimap& indexmap)
                 cout<<"Asymmetry: Progenitor"<<endl;
 #endif
                 vertexLoss = progenitors[pr];
+                notLost = progeny;
                 site = i;
             }
             else //Child loss
@@ -383,6 +384,7 @@ void duplication(Graph& graph, vimap& indexmap)
                 cout<<"Asymmetry: Progeny"<<endl;
 #endif
                 vertexLoss = progeny;
+                notLost = progenitors[pr];
                 site = py;
             }
 
@@ -400,10 +402,12 @@ void duplication(Graph& graph, vimap& indexmap)
                 Graph::edge_descriptor edgeLoss;
                 edgeLoss = graph[vertexLoss].sites[site].edges[j];
                 double prob_loss;
-                if (source(edgeLoss, graph) != target(edgeLoss, graph))
-                    prob_loss = param.prob_loss;
-                else
+                if (source(edgeLoss, graph) == target(edgeLoss, graph))
                     prob_loss = param.prob_self;
+                else if (edgeDest(vertexLoss, edgeLoss, graph) == notLost)
+                    prob_loss = param.prob_self;
+                else
+                    prob_loss = param.prob_loss;
                 if (rand_real() <= prob_loss) //Edge is lost
                 {
 #ifdef DEBUG
@@ -502,6 +506,124 @@ void duplication(Graph& graph, vimap& indexmap)
     else
         thisAsym = .5;
     asymmetry = asymmetry*(((double)nDuplications-1.0)/(double)nDuplications)+thisAsym*(1.0/(double)nDuplications);
+}
+
+
+/*
+    Determines sites/edges to be duplicated/removed
+
+    Returns false if duplication should be ignored (100% asym for progeny and 100% subfunc)
+*/
+bool determineInteractions(Graph& graph,
+                           vimap& indexmap,
+                           vector<Graph::vertex_descriptor>& progenitors,
+                           vector<bool>& progenitorLoss,
+                           vector<bool>& progenyAdd)
+{
+    uniform_real<> real_dist(0.0, 1.0);
+    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
+    pair<int, int> actualAsym(0,0); //progenitor, progeny asymmetry
+
+    //Choose random vertices
+    progenitors.push_back(random_vertex(graph, rng));
+    int progenitorDegree = out_degree(progenitors[0], graph);
+    //Make 'while' to do arbitrary number of progenitors NOT IMPLEMENTED
+    if (rand_real() <= param.prob_fusion)
+    {
+        Graph::vertex_descriptor progenitor;
+        //Needs to be modified to work with arbitrary number
+        while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
+        progenitors.push_back(progenitor);
+        progenitorDegree += out_degree(progenitor, graph);
+    }
+
+    progenitorLoss.resize(progenitorDegree);
+    progenyAdd.resize(progenitorDegree);
+    int progenyDegree = 0;
+
+
+    //Cycle through progenitors
+    for (int prog=0, x=0; prog<progenitors.size(); ++prog)
+    {
+        //Cycle through iSites
+        int numSites = graph[progenitors[prog]].sites.size();
+        for (int site=0; site<numSites; ++site)
+        {
+            //prob_asym
+            bool asym_progenitor = (rand_real() <= param.prob_asym);
+
+            //Cycle through edges
+            int numEdges = graph[progenitors[prog]].sites[site].edges.size();
+            for (int edge=0; edge<numEdges; ++edge, ++x)
+            {
+                bool loss;
+                //Check for self loop
+                if (graph[progenitors[prog]].edgeToSite[graph[progenitors[prog]].sites[site].edges[edge]]==-1)
+                    loss = (rand_real() <= param.prob_self);
+                else //heteromeric
+                    loss = (rand_real() <= param.prob_loss);
+
+                if (loss)
+                {
+                    if (asym_progenitor) //loss progenitor
+                    {
+                        progenitorLoss[x] = true;
+                        progenyAdd[x] = true;
+                        ++actualAsym.first;
+                        ++progenyDegree;
+                    }
+                    else //loss progeny
+                    {
+                        progenitorLoss[x] = false;
+                        progenyAdd[x] = false;
+                        ++actualAsym.second;
+                    }
+                }
+                else //no loss
+                {
+                    progenitorLoss[x] = false;
+                    progenyAdd[x] = true;
+                    ++progenyDegree;
+                } //if (loss)
+            } //Cycle through edges
+        } //Cycle through iSites
+    } //Cycle through progenitors
+
+    if (progenyDegree == 0)
+        return false;
+
+    //Duplication is happening
+    ++nDuplications;
+
+    //Update actual asymmetry
+    double thisAsym;
+    if (actualAsym.first+actualAsym.second != 0)
+        if (actualAsym.first > actualAsym.second)
+            thisAsym = (double)actualAsym.first / ((double)actualAsym.first+(double)actualAsym.second);
+        else
+            thisAsym = (double)actualAsym.second / ((double)actualAsym.first+(double)actualAsym.second);
+    else
+        thisAsym = .5;
+    asymmetry = asymmetry*(((double)nDuplications-1.0)/(double)nDuplications)+thisAsym*(1.0/(double)nDuplications);
+
+    return true;
+}
+
+
+/*
+    Performs iSite algorithm
+    1) Determine sites/edges to be duplicated/removed
+    2) Duplicate /remove edges
+*/
+void duplication(Graph& graph, vimap& indexmap)
+{
+    vector<Graph::vertex_descriptor> progenitors;
+    vector<bool> progenitorLoss;
+    vector<bool> progenyAdd;
+    if (!determineInteractions(graph, indexmap, progenitors, progenitorLoss, progenyAdd))
+        return;
+
+    //Add new vertex
 }
 
 
