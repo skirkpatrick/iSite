@@ -35,17 +35,17 @@ int nDuplications=0;
 
 struct isite
 {
-    string site_name;
     vector<edge_descriptor> edges;
     unsigned int age;
+    //string site_name;
 
-    isite() : site_name(""), edges(), age(0)
+    isite() : /*site_name(""),*/ edges(), age(0)
     {
     }
-    isite(const isite& is) : site_name(is.site_name), edges(is.edges), age(is.age)
+    isite(const isite& is) : /*site_name(is.site_name),*/ edges(is.edges), age(is.age)
     {
     }
-    isite(edge_descriptor e, unsigned int a, string name) : site_name(name), age(a)
+    isite(edge_descriptor e, unsigned int a, string name) : /*site_name(name),*/ age(a)
     {
         edges.push_back(e);
     }
@@ -100,16 +100,16 @@ void printEdge(Graph& graph,
     {
         site = graph[vd].selfLoops[ed].first;
         int site2 = graph[vd].selfLoops[ed].second;
-        cout<<" "<<graph[vd].sites[site].site_name<<"->"
+        /*cout<<" "<<graph[vd].sites[site].site_name<<"->"
             <<graph[vd].sites[site2].site_name<<":"
-            <<indexmap(vd);
+            <<indexmap(vd);*/
     }
     else
     {
         int connectedSite = graph[connectedNode].edgeToSite[ed];
-        cout<<" "<<graph[vd].sites[site].site_name<<"->"
+        /*cout<<" "<<graph[vd].sites[site].site_name<<"->"
             <<graph[connectedNode].sites[connectedSite].site_name<<":"
-            <<indexmap(connectedNode);
+            <<indexmap(connectedNode);*/
     }
 }
 
@@ -263,7 +263,7 @@ Graph::vertex_descriptor oduplicate(Graph& graph, vimap& indexmap, vector<Graph:
         {
             isite newSite;
             newSite.age = 0;
-            newSite.site_name = lexical_cast<string>(indexmap(*it)) + "." + graph[*it].sites[i].site_name;
+            //newSite.site_name = lexical_cast<string>(indexmap(*it)) + "." + graph[*it].sites[i].site_name;
 
             int siteEdges = graph[*it].sites[i].edges.size();
             for (int j=0; j < siteEdges; j++) //cycle through edges
@@ -367,7 +367,7 @@ void oduplication(Graph& graph, vimap& indexmap)
             Graph::vertex_descriptor vertexLoss, notLost;
 
 #ifdef DEBUG
-            cout<<"\niSite: "<<graph[progeny].sites[py].site_name<<endl;
+            //cout<<"\niSite: "<<graph[progeny].sites[py].site_name<<endl;
 #endif
             if (rand_real() <= param.prob_asym) //Parent loss
             {
@@ -518,7 +518,8 @@ bool determineInteractions(Graph& graph,
                            vimap& indexmap,
                            vector<Graph::vertex_descriptor>& progenitors,
                            vector<bool>& progenitorLoss,
-                           vector<bool>& progenyAdd)
+                           vector<bool>& progenyAdd,
+                           vector<pair<bool, bool> >& selfLoops)
 {
     uniform_real<> real_dist(0.0, 1.0);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
@@ -537,9 +538,16 @@ bool determineInteractions(Graph& graph,
         progenitorDegree += out_degree(progenitor, graph);
     }
 
+#ifdef DEBUG
+    cout << "**Duplication**" << endl;
+    for (unsigned int i=0; i<progenitors.size(); ++i)
+        cout << "Parent: " << indexmap(progenitors[i]) << endl;
+#endif
+
     progenitorLoss.resize(progenitorDegree);
     progenyAdd.resize(progenitorDegree);
     int progenyDegree = 0;
+    bool onlySelfLoops = true;
 
 
     //Cycle through progenitors
@@ -547,23 +555,41 @@ bool determineInteractions(Graph& graph,
     {
         //Cycle through iSites
         int numSites = graph[progenitors[prog]].sites.size();
+#ifdef DEBUG
+        cout<<indexmap(progenitors[prog])<<": iSites: "<<numSites<<endl;
+#endif
         for (int site=0; site<numSites; ++site)
         {
             //prob_asym
             bool asym_progenitor = (rand_real() <= param.prob_asym);
 
+#ifdef DEBUG
+            //cout<<"\niSite: "<<graph[progenitors[prog]].sites[site].site_name<<endl;
+            cout << "Asymmetry: " << (asym_progenitor ? "Progenitor" : "Progeny") << endl;
+#endif
+
             //Cycle through edges
             int numEdges = graph[progenitors[prog]].sites[site].edges.size();
+#ifdef DEBUG
+            cout<< "Edges: " << numEdges << endl;
+#endif
             for (int edge=0; edge<numEdges; ++edge, ++x)
             {
-                bool loss;
+                double prob_loss;
                 //Check for self loop
                 if (graph[progenitors[prog]].edgeToSite[graph[progenitors[prog]].sites[site].edges[edge]]==-1)
-                    loss = (rand_real() <= param.prob_self);
-                else //heteromeric
-                    loss = (rand_real() <= param.prob_loss);
+                {
+                    prob_loss = param.prob_self;
 
-                if (loss)
+                    //Probability of keeping homomeric interactions
+                    selfLoops.push_back(pair<bool,bool>((rand_real()<=prob_loss),(rand_real()<=prob_loss)));
+                    //Paralogous interaction is determined like other heteromeric interactions
+                        //but with selfLoopLoss probability
+                }
+                else //heteromeric
+                    prob_loss = param.prob_loss;
+//Need to check if edge between fused nodes
+                if (rand_real() <= prob_loss)
                 {
                     if (asym_progenitor) //loss progenitor
                     {
@@ -571,6 +597,8 @@ bool determineInteractions(Graph& graph,
                         progenyAdd[x] = true;
                         ++actualAsym.first;
                         ++progenyDegree;
+                        if (prob_loss == param.prob_self)
+                            onlySelfLoops = false;
                     }
                     else //loss progeny
                     {
@@ -584,12 +612,15 @@ bool determineInteractions(Graph& graph,
                     progenitorLoss[x] = false;
                     progenyAdd[x] = true;
                     ++progenyDegree;
+                    if (prob_loss == param.prob_self)
+                        onlySelfLoops = false;
                 } //if (loss)
             } //Cycle through edges
         } //Cycle through iSites
     } //Cycle through progenitors
 
-    if (progenyDegree == 0)
+    //Modify this to keep isolated nodes with self loops
+    if (progenyDegree == 0 || onlySelfLoops)
         return false;
 
     //Duplication is happening
@@ -620,10 +651,138 @@ void duplication(Graph& graph, vimap& indexmap)
     vector<Graph::vertex_descriptor> progenitors;
     vector<bool> progenitorLoss;
     vector<bool> progenyAdd;
-    if (!determineInteractions(graph, indexmap, progenitors, progenitorLoss, progenyAdd))
+    vector<pair<bool,bool> > selfLoops; //progenitorLoss, progenyAdd
+
+    //Determine sites/edges to be duplicated/removed
+    if (!determineInteractions(graph, indexmap, progenitors, progenitorLoss, progenyAdd, selfLoops))
         return;
 
     //Add new vertex
+    Graph::vertex_descriptor progeny = add_vertex(graph);
+    put(indexmap, progeny, counter++);
+
+#ifdef DEBUG
+    cout << "Child: " << indexmap(progeny) << endl;
+#endif
+
+    /*
+     *Add edges to progeny
+     */
+    //Cycle through progenitors
+    for (int prog=0, x=0, progeny_site=0, self_loop_it=0; prog<progenitors.size(); ++prog)
+    {
+        //Cycle through iSites
+        int numSites = graph[progenitors[prog]].sites.size();
+        for (int site=0; site<numSites; ++site, ++progeny_site)
+        {
+            isite newSite;
+            newSite.age = 0;
+            /*newSite.site_name = *lexical_cast<string>(indexmap(progenitors[prog]))
+                + "."
+                + graph[progenitors[prog]].sites[site].site_name;*/
+
+            //Cycle through edges
+            //int numEdges = graph[progenitors[prog]].sites[site].edges.size();
+            for (int edge=0; edge<graph[progenitors[prog]].sites[site].edges.size(); ++edge, ++x)
+            {
+                Graph::edge_descriptor original_edge = graph[progenitors[prog]].sites[site].edges[edge];
+
+                //Edge is new
+                if (edgeDest(progenitors[prog], original_edge, graph) == progeny)
+                {
+                    --x;
+                    continue;
+                }
+
+                //Self loop
+                if (graph[progenitors[prog]].edgeToSite[original_edge] == -1)
+                {
+                    //Self loop needs to be added to progeny
+                    if (selfLoops[self_loop_it].second)
+                    {
+                        ++nSelfLoops;
+                        int site1 = graph[progenitors[prog]].selfLoops[original_edge].first;
+                        int site2 = graph[progenitors[prog]].selfLoops[original_edge].second;
+                        
+                        //Self loop on same iSite
+                        if (site1 == site2)
+                        {
+                            //Add self loop
+                            Graph::edge_descriptor ed;
+                            bool temp_bool;
+                            tie(ed, temp_bool) = add_edge(progeny, progeny, graph);
+
+                            //Add to iSite
+                            newSite.edges.push_back(ed);
+                            graph[progeny].edgeToSite[ed] = -1;
+                            graph[progeny].selfLoops[ed] = make_pair(progeny_site, progeny_site);
+                        }
+                        else //Self loop on different iSites NOT IMPLEMENTED
+                        {
+                            assert(0==1);
+                        }
+                    }
+
+                    //Self loop needs to be removed from progenitor
+                    if (selfLoops[self_loop_it++].first)
+                    {
+                        --nSelfLoops;
+                        graph[progenitors[prog]].selfLoops.erase(original_edge);
+                        graph[progenitors[prog]].edgeToSite.erase(original_edge);
+                        graph[progenitors[prog]].sites[site].edges.erase(
+                            graph[progenitors[prog]].sites[site].edges.begin()+edge);
+                    }
+
+                    //Add paralogous interaction
+                    if (progenyAdd[x])
+                    {
+                        Graph::edge_descriptor ed;
+                        bool temp_bool;
+                        tie(ed, temp_bool) = add_edge(progenitors[prog], progeny, graph);
+
+                        //Add to iSite
+                        newSite.edges.push_back(ed);
+                        graph[progeny].edgeToSite[ed] = progeny_site;
+
+                        //Update progenitor iSite
+                        graph[progenitors[prog]].sites[site].edges.push_back(ed);
+                        graph[progenitors[prog]].edgeToSite[ed] = site;
+
+                        continue;
+                    }
+                }
+
+                //Add edge to progeny
+                if (progenyAdd[x])
+                {
+                    Graph::edge_descriptor ed;
+                    bool temp_bool;
+                    Graph::vertex_descriptor vd = edgeDest(progenitors[prog], original_edge, graph);
+
+                    tie(ed, temp_bool) = add_edge(progeny, vd, graph);
+                    if (!temp_bool)
+
+                    //Add to progeny iSite
+                    newSite.edges.push_back(ed);
+                    graph[progeny].edgeToSite[ed] = progeny_site;
+
+                    //Update connected node's iSite
+                    graph[vd].sites[graph[vd].edgeToSite[original_edge]].edges.push_back(ed);
+                    graph[vd].edgeToSite[ed] = graph[vd].edgeToSite[original_edge];
+                }
+
+                //Remove edge from progenitor
+                if (progenitorLoss[x])
+                {
+                    
+                }
+
+            } //Cycle through edges
+
+            graph[progeny].sites.push_back(newSite);
+
+        } //Cycle through iSites
+    } //Cycle through progenitors
 }
 
 
@@ -683,18 +842,24 @@ void printGraph(Graph& graph, vimap& indexmap)
                 {
                     site = graph[*vi].selfLoops[*oei].first;
                     int site2 = graph[*vi].selfLoops[*oei].second;
-                    cout<<" "<<graph[*vi].sites[site].site_name<<"->"
-                        <<graph[*vi].sites[site2].site_name<<":"
+                    cout<<" "<<site<<"->"
+                        <<site2<<":"
                         <<indexmap(vd);
+                    /*cout<<" "<<graph[*vi].sites[site].site_name<<"->"
+                        <<graph[*vi].sites[site2].site_name<<":"
+                        <<indexmap(vd);*/
                     printed_self_loops.push_back(*oei);
                 }
             }
             else
             {
                 int connectedSite = graph[vd].edgeToSite[*oei];
-                cout<<" "<<graph[*vi].sites[site].site_name<<"->"
-                    <<graph[vd].sites[connectedSite].site_name<<":"
+                cout<<" "<<site<<"->"
+                    <<connectedSite<<":"
                     <<indexmap(vd);
+                /*cout<<" "<<graph[*vi].sites[site].site_name<<"->"
+                    <<graph[vd].sites[connectedSite].site_name<<":"
+                    <<indexmap(vd);*/
             }
         }
         printed_self_loops.clear();
@@ -722,9 +887,9 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
                 Graph::vertex_descriptor vd1 = *vi; 
                 cout<<"Node: " << indexmap(vd1) << endl;
                 for (unsigned int i=0; i != graph[vd1].sites.size(); i++)
-                    cout<<"\t"<<graph[vd1].sites[i].site_name
+                    /*cout<<"\t"<<graph[vd1].sites[i].site_name
                         <<":: Age: "<<graph[vd1].sites[i].age
-                        <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;
+                        <<", Edges: "<<graph[vd1].sites[i].edges.size()<<endl;*/
                 cout<<endl;
             }
         break;
@@ -981,14 +1146,21 @@ int main(int argc, char* argv[])
         outfile<<param.prob_fusion<<" ";
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
+        outfile.flush();
         outfile<<num_vertices(graph)<<" ";
+        outfile.flush();
         outfile<<num_edges(graph)<<" ";
+        outfile.flush();
         simplify(graph);
+        outfile.flush();
         int numTriangles=triangles(graph);
+        outfile.flush();
         int numTriples=countTriples(graph);
+        outfile.flush();
         outfile<<numTriangles<<" ";
         outfile<<numTriples<<" ";
         outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples<<" ";
+        outfile.flush();
         outfile<<components(graph, indexmap);
         outfile<<endl;
 
