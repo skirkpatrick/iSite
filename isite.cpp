@@ -132,7 +132,10 @@ void simplify(Graph& graph)
         for (tie(adji, adjiend)=adjacent_vertices(*vi, graph); adji!=adjiend; ++adji)
         {
             while (edge(*vi, *adji, graph).first != edge(*adji, *vi, graph).first)
+            {
                 remove_edge(*vi, *adji, graph);
+
+            }
         }
     }
 }
@@ -195,6 +198,21 @@ int components(Graph& graph, vimap& indexmap)
 }
 
 
+/*
+    Determines if node is isolated (only self loops)
+*/
+bool isolated(Graph::vertex_descriptor vd, Graph& graph)
+{
+    AdjIter adji, adjiend;
+    for (tie(adji, adjiend) = adjacent_vertices(vd, graph);
+         adji != adjiend; ++adji)
+    {
+        if (*adji != vd) return false;
+    }
+    return true;
+}
+
+
 
 //Stores input parameters
 struct parameters
@@ -226,7 +244,7 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 /*
     Fuses duplications of two nodes
 */
-Graph::vertex_descriptor oduplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
+Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
 {
     progenitors.push_back(random_vertex(graph, rng));
     uniform_real<> real_dist(0.0, 1.0);
@@ -342,14 +360,14 @@ Graph::vertex_descriptor oduplicate(Graph& graph, vimap& indexmap, vector<Graph:
     3)For each edge on chosen site, use prob_loss to determine if lost
     4)Remove isolated vertices (vertex with degree=0)
 */
-void oduplication(Graph& graph, vimap& indexmap)
+void duplication(Graph& graph, vimap& indexmap)
 {
     ++nDuplications;
     uniform_real<> real_dist(0.0, 1.0);
     variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     vector<Graph::vertex_descriptor> progenitors;
     Graph::vertex_descriptor progeny;
-    progeny=oduplicate(graph, indexmap, progenitors);
+    progeny=duplicate(graph, indexmap, progenitors);
 
     //prob_asym
     pair<int, int> actualAsym(0,0); //progenitor, progeny asymmetry
@@ -469,8 +487,9 @@ void oduplication(Graph& graph, vimap& indexmap)
                 --numSites;
             }
         //If progenitor has no iSites (and therefore no edges), delete it
-        if (graph[progenitors[pr]].sites.empty())
+        if (graph[progenitors[pr]].sites.empty() || isolated(progenitors[pr], graph))
         {
+            clear_vertex(progenitors[pr], graph);
             remove_vertex(progenitors[pr], graph);
         }
     }//cycle through progenitors
@@ -492,9 +511,12 @@ void oduplication(Graph& graph, vimap& indexmap)
             --size;
         }
     //If progeny has no iSites (and therefore no edges), delete it
-    if (graph[progeny].sites.empty())
+    if (graph[progeny].sites.empty() || isolated(progeny, graph))
     {
+        clear_vertex(progeny, graph);
         remove_vertex(progeny, graph);
+        --nDuplications;
+        return;
     }
     //Update actual asymmetry
     double thisAsym;
@@ -612,8 +634,7 @@ bool determineInteractions(Graph& graph,
                     progenitorLoss[x] = false;
                     progenyAdd[x] = true;
                     ++progenyDegree;
-                    if (prob_loss == param.prob_self)
-                        onlySelfLoops = false;
+                    onlySelfLoops = false;
                 } //if (loss)
             } //Cycle through edges
         } //Cycle through iSites
@@ -646,7 +667,7 @@ bool determineInteractions(Graph& graph,
     1) Determine sites/edges to be duplicated/removed
     2) Duplicate /remove edges
 */
-void duplication(Graph& graph, vimap& indexmap)
+void preemptiveDuplication(Graph& graph, vimap& indexmap)
 {
     vector<Graph::vertex_descriptor> progenitors;
     vector<bool> progenitorLoss;
@@ -671,8 +692,9 @@ void duplication(Graph& graph, vimap& indexmap)
     //Cycle through progenitors
     for (int prog=0, x=0, progeny_site=0, self_loop_it=0; prog<progenitors.size(); ++prog)
     {
+        Graph::vertex_descriptor pr = progenitors[prog];
         //Cycle through iSites
-        int numSites = graph[progenitors[prog]].sites.size();
+        int numSites = graph[pr].sites.size();
         for (int site=0; site<numSites; ++site, ++progeny_site)
         {
             isite newSite;
@@ -683,26 +705,26 @@ void duplication(Graph& graph, vimap& indexmap)
 
             //Cycle through edges
             //int numEdges = graph[progenitors[prog]].sites[site].edges.size();
-            for (int edge=0; edge<graph[progenitors[prog]].sites[site].edges.size(); ++edge, ++x)
+            for (int edge=0; edge<graph[pr].sites[site].edges.size(); ++edge, ++x)
             {
-                Graph::edge_descriptor original_edge = graph[progenitors[prog]].sites[site].edges[edge];
+                Graph::edge_descriptor original_edge = graph[pr].sites[site].edges[edge];
 
                 //Edge is new
-                if (edgeDest(progenitors[prog], original_edge, graph) == progeny)
+                if (edgeDest(pr, original_edge, graph) == progeny)
                 {
                     --x;
                     continue;
                 }
 
                 //Self loop
-                if (graph[progenitors[prog]].edgeToSite[original_edge] == -1)
+                if (graph[pr].edgeToSite[original_edge] == -1)
                 {
                     //Self loop needs to be added to progeny
                     if (selfLoops[self_loop_it].second)
                     {
                         ++nSelfLoops;
-                        int site1 = graph[progenitors[prog]].selfLoops[original_edge].first;
-                        int site2 = graph[progenitors[prog]].selfLoops[original_edge].second;
+                        int site1 = graph[pr].selfLoops[original_edge].first;
+                        int site2 = graph[pr].selfLoops[original_edge].second;
                         
                         //Self loop on same iSite
                         if (site1 == site2)
@@ -727,29 +749,30 @@ void duplication(Graph& graph, vimap& indexmap)
                     if (selfLoops[self_loop_it++].first)
                     {
                         --nSelfLoops;
-                        graph[progenitors[prog]].selfLoops.erase(original_edge);
-                        graph[progenitors[prog]].edgeToSite.erase(original_edge);
-                        graph[progenitors[prog]].sites[site].edges.erase(
-                            graph[progenitors[prog]].sites[site].edges.begin()+edge);
+                        graph[pr].selfLoops.erase(original_edge);
+                        graph[pr].edgeToSite.erase(original_edge);
+                        graph[pr].sites[site].edges.erase(
+                            graph[pr].sites[site].edges.begin()+edge);
+
+                        remove_edge(original_edge, graph);
                     }
 
                     //Add paralogous interaction
-                    if (progenyAdd[x])
+                    if (progenyAdd[x] && !progenitorLoss[x])
                     {
                         Graph::edge_descriptor ed;
                         bool temp_bool;
-                        tie(ed, temp_bool) = add_edge(progenitors[prog], progeny, graph);
+                        tie(ed, temp_bool) = add_edge(pr, progeny, graph);
 
                         //Add to iSite
                         newSite.edges.push_back(ed);
                         graph[progeny].edgeToSite[ed] = progeny_site;
 
                         //Update progenitor iSite
-                        graph[progenitors[prog]].sites[site].edges.push_back(ed);
-                        graph[progenitors[prog]].edgeToSite[ed] = site;
-
-                        continue;
+                        graph[pr].sites[site].edges.push_back(ed);
+                        graph[pr].edgeToSite[ed] = site;
                     }
+                    continue;
                 }
 
                 //Add edge to progeny
@@ -757,7 +780,7 @@ void duplication(Graph& graph, vimap& indexmap)
                 {
                     Graph::edge_descriptor ed;
                     bool temp_bool;
-                    Graph::vertex_descriptor vd = edgeDest(progenitors[prog], original_edge, graph);
+                    Graph::vertex_descriptor vd = edgeDest(pr, original_edge, graph);
 
                     tie(ed, temp_bool) = add_edge(progeny, vd, graph);
                     if (!temp_bool)
@@ -774,7 +797,25 @@ void duplication(Graph& graph, vimap& indexmap)
                 //Remove edge from progenitor
                 if (progenitorLoss[x])
                 {
-                    
+                    //Remove from iSite
+                    graph[pr].edgeToSite.erase(original_edge);
+                    graph[pr].sites[site].edges.erase(
+                        graph[pr].sites[site].edges.begin()+edge);
+
+                    //Update connected node
+                    Graph::vertex_descriptor vd = edgeDest(pr, original_edge, graph);
+                    int connectedSite = graph[vd].edgeToSite[original_edge];
+                    int connectedSiteSize = graph[vd].sites[connectedSite].edges.size();
+                    int k;
+                    for (k=0; k<connectedSiteSize; ++k)
+                        if (graph[vd].sites[connectedSite].edges[k]==original_edge) break;
+                    graph[vd].edgeToSite.erase(original_edge);
+                    graph[vd].sites[connectedSite].edges.erase(
+                        graph[vd].sites[connectedSite].edges.begin()+k);
+
+                    //Remove edge
+                    remove_edge(original_edge, graph);
+                    --edge;
                 }
 
             } //Cycle through edges
@@ -783,6 +824,22 @@ void duplication(Graph& graph, vimap& indexmap)
 
         } //Cycle through iSites
     } //Cycle through progenitors
+
+    //Check for empty progenitors
+    for (int i=0; i<progenitors.size(); ++i)
+        if (out_degree(progenitors[i], graph)==0)
+            remove_vertex(progenitors[i], graph);
+        else
+        {
+            bool self = true;
+            AdjIter adji, adjiend;
+            for (tie(adji, adjiend)=adjacent_vertices(progenitors[i], graph);
+                 adji!=adjiend;++adji)
+                if (*adji != progenitors[i])
+                    self = false;
+            if (self)
+                remove_vertex(progenitors[i], graph);
+        }
 }
 
 
@@ -966,9 +1023,7 @@ int main(int argc, char* argv[])
     }
 
     /*******Iteration***********/
-#ifdef DEBUG
     int iterations=param.iterations;
-#endif
     rng.seed(time(NULL)*getpid());
 
     //Opening output file
@@ -1120,8 +1175,8 @@ int main(int argc, char* argv[])
         cout << "Iteration: " << iterations-param.iterations << endl;
 #endif
 #ifdef NDEBUG
-        cout << "Working";
-        cout.flush();
+        //cout << "Working";
+        cout << "Iteration: " << iterations-param.iterations << endl;
 #endif
         while (num_vertices(graph)<param.end_order)
         {
@@ -1129,14 +1184,13 @@ int main(int argc, char* argv[])
             duplication(graph, indexmap);
 
             output_info(graph, indexmap, "***Graph during algorithm***", PRINT); 
-            output_info(graph, indexmap, "", STATUS); 
+            //output_info(graph, indexmap, "", STATUS); 
         }
 
         output_info(graph, indexmap, "***End Graph***", PRINT); 
         output_info(graph, indexmap, "***Node Summary***", NODE_SUMMARY); 
 
 #ifdef NDEBUG
-        cout<<endl;
         cout<<"Generating results"<<endl;
 #endif
 	
@@ -1146,21 +1200,14 @@ int main(int argc, char* argv[])
         outfile<<param.prob_fusion<<" ";
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
-        outfile.flush();
         outfile<<num_vertices(graph)<<" ";
-        outfile.flush();
         outfile<<num_edges(graph)<<" ";
-        outfile.flush();
         simplify(graph);
-        outfile.flush();
         int numTriangles=triangles(graph);
-        outfile.flush();
         int numTriples=countTriples(graph);
-        outfile.flush();
         outfile<<numTriangles<<" ";
         outfile<<numTriples<<" ";
         outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples<<" ";
-        outfile.flush();
         outfile<<components(graph, indexmap);
         outfile<<endl;
 
