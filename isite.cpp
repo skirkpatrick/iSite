@@ -51,6 +51,7 @@ void printEdge(Graph& graph,
         /*cout<<" "<<graph[vd].sites[site].site_name<<"->"
             <<graph[vd].sites[site2].site_name<<":"
             <<indexmap(vd);*/
+        cout<<" "<<site<<"->"<<site2<<":"<<indexmap(vd);
     }
     else
     {
@@ -58,6 +59,7 @@ void printEdge(Graph& graph,
         /*cout<<" "<<graph[vd].sites[site].site_name<<"->"
             <<graph[connectedNode].sites[connectedSite].site_name<<":"
             <<indexmap(connectedNode);*/
+        cout<<" "<<site<<"->"<<connectedSite<<":"<<indexmap(connectedNode);
     }
 }
 
@@ -967,6 +969,7 @@ int main(int argc, char* argv[])
     /*******Iteration***********/
     int iterations=param.iterations;
     Random random(time(NULL)*getpid());
+    //Random random(10000000, "randvals");
     rnd = &random;
 
     //Opening output file
@@ -1132,11 +1135,12 @@ int main(int argc, char* argv[])
 
         output_info(graph, indexmap, "***End Graph***", PRINT); 
         output_info(graph, indexmap, "***Node Summary***", NODE_SUMMARY); 
+        printGraph(graph, indexmap);
 
 #ifdef NDEBUG
         cout<<"Generating results"<<endl;
 #endif
-	
+
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
@@ -1144,8 +1148,8 @@ int main(int argc, char* argv[])
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
-        outfile<<num_edges(graph)<<" ";
         simplify(graph);
+        outfile<<num_edges(graph)<<" ";
         int numTriangles=triangles(graph);
         int numTriples=countTriples(graph);
         outfile<<numTriangles<<" ";
