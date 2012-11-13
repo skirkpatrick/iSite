@@ -13,72 +13,20 @@
 #include<set>
 
 
-#include<boost/graph/adjacency_list.hpp>
 #include<boost/graph/connected_components.hpp>
-#include<boost/property_map/property_map.hpp>
-#include<boost/random.hpp>
-#include<boost/generator_iterator.hpp>
-#include<boost/graph/random.hpp>
 #include<boost/lexical_cast.hpp>
+
+#include "Random.hpp"
+#include "graph_properties.hpp"
 
 using namespace std;
 using namespace boost;
 
 enum output_type {PRINT, NODE_SUMMARY, STATUS, EVOLUTION};
 
-typedef adjacency_list_traits<listS,listS,undirectedS>::edge_descriptor edge_descriptor;
-typedef adjacency_list_traits<listS,listS,undirectedS>::vertex_descriptor vertex_descriptor;
-
 int nSelfLoops=0;
 double asymmetry=0.0;
 int nDuplications=0;
-
-struct isite
-{
-    vector<edge_descriptor> edges;
-    unsigned int age;
-    //string site_name;
-
-    isite() : /*site_name(""),*/ edges(), age(0)
-    {
-    }
-    isite(const isite& is) : /*site_name(is.site_name),*/ edges(is.edges), age(is.age)
-    {
-    }
-    isite(edge_descriptor e, unsigned int a, string name) : /*site_name(name),*/ age(a)
-    {
-        edges.push_back(e);
-    }
-};
-
-struct vertexsites
-{
-    map<edge_descriptor, pair<int, int> > selfLoops;
-    vector<isite> sites;
-    map<edge_descriptor,int> edgeToSite;
-    map<string, int> site_name_to_index;
-};
-
-typedef adjacency_list<listS, listS, undirectedS,
-                        property<vertex_index_t, int, vertexsites> > Graph;
-
-typedef boost::graph_traits<Graph>::out_edge_iterator out_edge_iterator;
-
-/*
-adjacency_list<OutEdgeList,         <-listS=time, vecS=space
-                VertexList,         <-listS=time, vecS=space
-                Directed,           <-iSite graphs are undirected
-                VertexProperties,   <-Possibly not needed?
-                EdgeProperties,     <-Needed for iSites
-                GraphProperties,    <-Possibly not needed?
-                EdgeList>           <-Not needed
-                */
-
-typedef graph_traits<Graph>::vertex_iterator vertex_iterator;
-typedef graph_traits<Graph>::edge_iterator edge_iterator;
-typedef graph_traits<Graph>::adjacency_iterator AdjIter;
-typedef property_map<Graph, vertex_index_t>::type vimap;
-typedef mt19937 RNGType;
 
 
 Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
@@ -228,7 +176,7 @@ struct parameters
 
 //For vertex index mapping
 unsigned int counter;
-static RNGType rng;
+static Random* rnd;
 
 /*
     Given an edge and a vertex, returns the vertex on the opposite end
@@ -246,14 +194,12 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 */
 Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
 {
-    progenitors.push_back(random_vertex(graph, rng));
-    uniform_real<> real_dist(0.0, 1.0);
-    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
+    progenitors.push_back(rnd->random_vertex(graph));
     //Make 'while' to do arbitrary number of nodes
-    if (rand_real() <= param.prob_fusion)
+    if (rnd->rand() <= param.prob_fusion)
     {
         Graph::vertex_descriptor progenitor;
-        while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
+        while ((progenitor=rnd->random_vertex(graph)) == progenitors[0]);
         progenitors.push_back(progenitor);
     }
 
@@ -363,8 +309,6 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
 void duplication(Graph& graph, vimap& indexmap)
 {
     ++nDuplications;
-    uniform_real<> real_dist(0.0, 1.0);
-    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     vector<Graph::vertex_descriptor> progenitors;
     Graph::vertex_descriptor progeny;
     progeny=duplicate(graph, indexmap, progenitors);
@@ -387,7 +331,7 @@ void duplication(Graph& graph, vimap& indexmap)
 #ifdef DEBUG
             //cout<<"\niSite: "<<graph[progeny].sites[py].site_name<<endl;
 #endif
-            if (rand_real() <= param.prob_asym) //Parent loss
+            if (rnd->rand() <= param.prob_asym) //Parent loss
             {
 #ifdef DEBUG
                 cout<<"Asymmetry: Progenitor"<<endl;
@@ -426,7 +370,7 @@ void duplication(Graph& graph, vimap& indexmap)
                     prob_loss = param.prob_self;
                 else
                     prob_loss = param.prob_loss;
-                if (rand_real() <= prob_loss) //Edge is lost
+                if (rnd->rand() <= prob_loss) //Edge is lost
                 {
 #ifdef DEBUG
                     cout<<": Yes"<<endl;
@@ -543,19 +487,17 @@ bool determineInteractions(Graph& graph,
                            vector<bool>& progenyAdd,
                            vector<pair<bool, bool> >& selfLoops)
 {
-    uniform_real<> real_dist(0.0, 1.0);
-    variate_generator<RNGType&, uniform_real<> > rand_real(rng, real_dist);
     pair<int, int> actualAsym(0,0); //progenitor, progeny asymmetry
 
     //Choose random vertices
-    progenitors.push_back(random_vertex(graph, rng));
+    progenitors.push_back(rnd->random_vertex(graph));
     int progenitorDegree = out_degree(progenitors[0], graph);
     //Make 'while' to do arbitrary number of progenitors NOT IMPLEMENTED
-    if (rand_real() <= param.prob_fusion)
+    if (rnd->rand() <= param.prob_fusion)
     {
         Graph::vertex_descriptor progenitor;
         //Needs to be modified to work with arbitrary number
-        while ((progenitor=random_vertex(graph, rng)) == progenitors[0]);
+        while ((progenitor=rnd->random_vertex(graph)) == progenitors[0]);
         progenitors.push_back(progenitor);
         progenitorDegree += out_degree(progenitor, graph);
     }
@@ -583,7 +525,7 @@ bool determineInteractions(Graph& graph,
         for (int site=0; site<numSites; ++site)
         {
             //prob_asym
-            bool asym_progenitor = (rand_real() <= param.prob_asym);
+            bool asym_progenitor = (rnd->rand() <= param.prob_asym);
 
 #ifdef DEBUG
             //cout<<"\niSite: "<<graph[progenitors[prog]].sites[site].site_name<<endl;
@@ -604,14 +546,14 @@ bool determineInteractions(Graph& graph,
                     prob_loss = param.prob_self;
 
                     //Probability of keeping homomeric interactions
-                    selfLoops.push_back(pair<bool,bool>((rand_real()<=prob_loss),(rand_real()<=prob_loss)));
+                    selfLoops.push_back(pair<bool,bool>((rnd->rand()<=prob_loss),(rnd->rand()<=prob_loss)));
                     //Paralogous interaction is determined like other heteromeric interactions
                         //but with selfLoopLoss probability
                 }
                 else //heteromeric
                     prob_loss = param.prob_loss;
 //Need to check if edge between fused nodes
-                if (rand_real() <= prob_loss)
+                if (rnd->rand() <= prob_loss)
                 {
                     if (asym_progenitor) //loss progenitor
                     {
@@ -1024,7 +966,8 @@ int main(int argc, char* argv[])
 
     /*******Iteration***********/
     int iterations=param.iterations;
-    rng.seed(time(NULL)*getpid());
+    Random random(time(NULL)*getpid());
+    rnd = &random;
 
     //Opening output file
     ofstream outfile("result");
