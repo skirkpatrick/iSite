@@ -16,15 +16,14 @@ struct isite
 {
     std::vector<edge_descriptor> edges;
     unsigned int age;
-    //string site_name;
 
-    isite() : /*site_name(""),*/ edges(), age(0)
+    isite() : edges(), age(0)
     {
     }
-    isite(const isite& is) : /*site_name(is.site_name),*/ edges(is.edges), age(is.age)
+    isite(const isite& is) : edges(is.edges), age(is.age)
     {
     }
-    isite(edge_descriptor e, unsigned int a, std::string name) : /*site_name(name),*/ age(a)
+    isite(edge_descriptor e, unsigned int a) : age(a)
     {
         edges.push_back(e);
     }
