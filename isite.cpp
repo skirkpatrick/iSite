@@ -61,6 +61,64 @@ void printEdge(Graph& graph,
 
 
 /*
+    Returns the largest component of a graph
+*/
+Graph get_large_component(Graph& graph, vimap& indexmap)
+{
+    int count=0;
+    vertex_iterator vi, viend;
+    for (tie(vi, viend)=vertices(graph); vi!=viend; ++vi)
+    {
+        put(indexmap, *vi, count++);
+    }
+    //vector<Graph::vertex_descriptor> component(count);
+    vimap component;
+    connected_components(graph, component, vertex_index_map(indexmap));
+    vector<int> component_counts(count, 0);
+    /*
+    for (int i=0; i<count; ++i)
+        component_counts[component[i]]++;
+    */
+    vertex_iterator viter, viter_end;
+    for (tie(viter, viter_end) = vertices(graph); viter != viter_end; ++viter)
+        component_counts[component(*viter)]++;
+
+    //Determine largest component
+    int lsize=0;
+    int whichcomponent = 0;
+    for (int i=0; component_counts[i]>0; ++i)
+        if (component_counts[i]>lsize)
+        {
+            whichcomponent = i;
+            lsize = component_counts[i];
+        }
+
+    //Build largest component subgraph
+    Graph lgcomponent;
+    map<Graph::vertex_descriptor, Graph::vertex_descriptor> nodeToIndex;
+    int j=0;
+    for (tie(viter, viter_end) = vertices(graph); viter != viter_end; ++viter)
+        if (component(*viter) == whichcomponent)
+        {
+            Graph::vertex_descriptor node = add_vertex(lgcomponent);
+            nodeToIndex[*viter] = node;
+        }
+
+    //Add edges
+    edge_iterator eiter, eiter_end;
+    tie(eiter,eiter_end) = edges(graph);
+    for (; eiter != eiter_end; ++eiter)
+    {
+        Graph::vertex_descriptor src = source(*eiter, graph);
+        Graph::vertex_descriptor tgt = target(*eiter, graph);
+        if (nodeToIndex.count(src)==1)
+            add_edge(nodeToIndex[src], nodeToIndex[tgt], lgcomponent);
+    }
+    return lgcomponent;
+}
+
+
+/*
     Removes parallel edges and self loops
 */
 void simplify(Graph& graph)
@@ -987,7 +1045,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: "<<outfile_path<<endl;
         exit(1);
     }
-    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
+    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents lgComponentOrder lgComponentSize lgComponentTris lgComponentTips lgComponentCC" << endl;
 
     while (param.iterations--) //needs to encompass building seed graph, too
     {
@@ -1168,7 +1226,16 @@ int main(int argc, char* argv[])
         outfile<<numTriangles<<" ";
         outfile<<numTriples<<" ";
         outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples<<" ";
-        outfile<<components(graph, indexmap);
+        outfile<<components(graph, indexmap)<<" ";
+        //Largest component
+        Graph lgcomponent = get_large_component(graph, indexmap);
+        outfile<<num_vertices(lgcomponent)<<" ";
+        outfile<<num_edges(lgcomponent)<<" ";
+        numTriangles = triangles(lgcomponent);
+        numTriples = countTriples(lgcomponent);
+        outfile<<numTriangles<<" ";
+        outfile<<numTriples<<" ";
+        outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples;
         outfile<<endl;
 
         output_info(graph, indexmap, "***Node Evolution***", EVOLUTION); 
