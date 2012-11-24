@@ -11,6 +11,8 @@
 #include<unistd.h>  //for better random seed
 #include<cassert>   //for debugging
 #include<set>
+#include<sys/stat.h>
+#include<sys/types.h>
 
 
 #include<boost/graph/connected_components.hpp>
@@ -917,11 +919,11 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=8)
+    if (argc!=10)
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
-                "<probability of fusion> <end order> <iterations>"<<endl;
+                "<probability of fusion> <end order> <iterations> <output dir> <output file>"<<endl;
         exit(1);
     }
 
@@ -967,11 +969,21 @@ int main(int argc, char* argv[])
     //Random random(10000000, "randvals");
     rnd = &random;
 
+    //Create output directory
+    string outfile_path(argv[9]);
+    if (mkdir(argv[8], 0777) != -1 || errno == EEXIST)
+    {
+        outfile_path.insert(0, "/");
+        outfile_path.insert(0, argv[8]);
+    }
+    else
+        perror("Unable to create output directory");
+
     //Opening output file
-    ofstream outfile("result");
+    ofstream outfile(outfile_path.c_str());
     if (!outfile)
     {
-        cerr<<"Error opening output file: result"<<endl;
+        cerr<<"Error opening output file: "<<outfile_path<<endl;
         exit(1);
     }
     outfile << "subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
