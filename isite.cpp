@@ -919,11 +919,12 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=10)
+    if (argc!=11)
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
-                "<probability of fusion> <end order> <iterations> <output dir> <output file>"<<endl;
+                "<probability of fusion> <end order> <iterations> <output dir> <output file>"
+                "<PBS job-id>"<<endl;
         exit(1);
     }
 
@@ -986,7 +987,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: "<<outfile_path<<endl;
         exit(1);
     }
-    outfile << "subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
+    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents" << endl;
 
     while (param.iterations--) //needs to encompass building seed graph, too
     {
@@ -1152,6 +1153,7 @@ int main(int argc, char* argv[])
         cout<<"Generating results"<<endl;
 #endif
 
+        outfile<<argv[10]<<" ";
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
