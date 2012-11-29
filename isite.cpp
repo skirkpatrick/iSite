@@ -13,6 +13,8 @@
 #include<set>
 #include<sys/stat.h>
 #include<sys/types.h>
+#include<errno.h>
+#include<iomanip>
 
 
 #include<boost/graph/connected_components.hpp>
@@ -96,7 +98,6 @@ Graph get_large_component(Graph& graph, vimap& indexmap)
     //Build largest component subgraph
     Graph lgcomponent;
     map<Graph::vertex_descriptor, Graph::vertex_descriptor> nodeToIndex;
-    int j=0;
     for (tie(viter, viter_end) = vertices(graph); viter != viter_end; ++viter)
         if (component(*viter) == whichcomponent)
         {
@@ -476,6 +477,7 @@ void duplication(Graph& graph, vimap& indexmap)
 
         }//cycle through iSites
 
+/*
         //Check progenitor for empty iSites
         for (int i=0; i<numSites; ++i)
             if (pgrref.sites[i].edges.size()==0)
@@ -492,14 +494,16 @@ void duplication(Graph& graph, vimap& indexmap)
                 --i;
                 --numSites;
             }
+*/
         //If progenitor has no iSites (and therefore no edges), delete it
-        if (pgrref.sites.empty() || isolated(progenitors[pr], graph))
+        if (isolated(progenitors[pr], graph))
         {
             clear_vertex(progenitors[pr], graph);
             remove_vertex(progenitors[pr], graph);
         }
     }//cycle through progenitors
 
+/*
     //Check progeny for empty iSites
     for (int i=0, size=pgyref.sites.size(); i<size; ++i)
         if (pgyref.sites[i].edges.size()==0)
@@ -516,8 +520,9 @@ void duplication(Graph& graph, vimap& indexmap)
             --i;
             --size;
         }
+*/
     //If progeny has no iSites (and therefore no edges), delete it
-    if (pgyref.sites.empty() || isolated(progeny, graph))
+    if (isolated(progeny, graph))
     {
         clear_vertex(progeny, graph);
         remove_vertex(progeny, graph);
@@ -981,7 +986,7 @@ int main(int argc, char* argv[])
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
-                "<probability of fusion> <end order> <iterations> <output dir> <output file>"
+                "<probability of fusion> <end order> <iterations> <output dir> <output file> "
                 "<PBS job-id>"<<endl;
         exit(1);
     }
@@ -1047,7 +1052,7 @@ int main(int argc, char* argv[])
     }
     outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents lgComponentOrder lgComponentSize lgComponentTris lgComponentTips lgComponentCC" << endl;
 
-    while (param.iterations--) //needs to encompass building seed graph, too
+    while (param.iterations--)
     {
 
         //Opening input file
@@ -1205,7 +1210,7 @@ int main(int argc, char* argv[])
         output_info(graph, indexmap, "***Node Summary***", NODE_SUMMARY); 
 
         //Uncomment to print resulting graph
-        //printGraph(graph, indexmap);
+        printGraph(graph, indexmap);
 
 #ifdef NDEBUG
         cout<<"Generating results"<<endl;
