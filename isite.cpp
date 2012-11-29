@@ -498,7 +498,7 @@ void duplication(Graph& graph, vimap& indexmap)
         //If progenitor has no iSites (and therefore no edges), delete it
         if (isolated(progenitors[pr], graph))
         {
-            clear_vertex(progenitors[pr], graph);
+            //clear_vertex(progenitors[pr], graph);
             remove_vertex(progenitors[pr], graph);
         }
     }//cycle through progenitors
@@ -524,7 +524,7 @@ void duplication(Graph& graph, vimap& indexmap)
     //If progeny has no iSites (and therefore no edges), delete it
     if (isolated(progeny, graph))
     {
-        clear_vertex(progeny, graph);
+        //clear_vertex(progeny, graph);
         remove_vertex(progeny, graph);
         --nDuplications;
         return;
@@ -1210,7 +1210,7 @@ int main(int argc, char* argv[])
         output_info(graph, indexmap, "***Node Summary***", NODE_SUMMARY); 
 
         //Uncomment to print resulting graph
-        printGraph(graph, indexmap);
+        //printGraph(graph, indexmap);
 
 #ifdef NDEBUG
         cout<<"Generating results"<<endl;

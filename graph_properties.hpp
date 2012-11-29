@@ -27,6 +27,10 @@ struct isite
     {
         edges.push_back(e);
     }
+    ~isite()
+    {
+        edges.clear();
+    }
 };
 
 struct vertexsites
