@@ -10,6 +10,7 @@ ENDORDER='2647'
 ITERATIONS='1'
 OUTDIR='results'
 OUTFILE='result'
+SRCDIR='/home/skirkpatrick/workspace/iSite'
 #0%-20% inclusive, step by 1%
 for PROBFUSION in [x*.01 for x in range(21)]:
     for iteration in range(100):
@@ -22,7 +23,8 @@ for PROBFUSION in [x*.01 for x in range(21)]:
                ',ENDORDER=' + ENDORDER +                            \
                ',ITERATIONS=' + ITERATIONS +                        \
                ',OUTDIR=' + OUTDIR + '.{:.2f}'.format(PROBFUSION) + \
-               ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration)
+               ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration) +  \
+               ',SRCDIR=' + SRCDIR
         subprocess.call('qsub -v ' + args + ' iSite.pbs', shell=True)
 user = subprocess.check_output('id -u -n', shell=True).decode().strip()
 num_jobs_cmd = 'qstat | grep ' + user + ' | grep -v \' C \' | wc -l'
