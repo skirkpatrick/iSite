@@ -63,6 +63,38 @@ void printEdge(Graph& graph,
 
 
 /*
+    Calculates iSite distribution
+*/
+void isite_distribution(Graph& graph, vector<int>& vmap)
+{
+    vertex_iterator vi, viend;
+    for (tie(vi, viend)=vertices(graph); vi!=viend; ++vi)
+    {
+        int nsites=0;
+        vertexsites& node = graph[*vi];
+        for (int i=0; i<node.sites.size(); ++i)
+            if (!node.sites[i].edges.empty())
+                ++nsites;
+
+        if (nsites+1 > vmap.size())
+            vmap.resize(nsites+1);
+
+        ++vmap[nsites];
+    }
+}
+
+
+/*
+    Prints iSite distribution
+*/
+void print_distribution(vector<int>& vmap)
+{
+    for (int i=0; i<vmap.size(); ++i)
+        cout<<i<<": "<<vmap[i]<<endl;
+}
+
+
+/*
     Returns the largest component of a graph
 */
 Graph get_large_component(Graph& graph, vimap& indexmap)
@@ -131,7 +163,15 @@ void simplify(Graph& graph)
     {
         //Remove homomeric interactions
         while (edge(*vi, *vi, graph).second)
-            remove_edge(*vi, *vi, graph);
+        {
+            Graph::edge_descriptor ed = edge(*vi, *vi, graph).first;
+            vertexsites& vs = graph[*vi];
+            int site = vs.selfLoops[ed].first;
+            vector<edge_descriptor>::iterator pos;
+            for (pos=vs.sites[site].edges.begin(); *pos!=ed; ++pos);
+            vs.sites[site].edges.erase(pos);
+            remove_edge(ed, graph);
+        }
 
         //Remove parallel interactions
         for (tie(adji, adjiend)=adjacent_vertices(*vi, graph); adji!=adjiend; ++adji)
@@ -1204,6 +1244,10 @@ int main(int argc, char* argv[])
 
             output_info(graph, indexmap, "***Graph during algorithm***", PRINT); 
             //output_info(graph, indexmap, "", STATUS); 
+
+            //Uncomment to print graph after each duplication
+            //printGraph(graph, indexmap);
+            //cout<<endl;
         }
 
         output_info(graph, indexmap, "***End Graph***", PRINT); 
@@ -1215,6 +1259,7 @@ int main(int argc, char* argv[])
 #ifdef NDEBUG
         cout<<"Generating results"<<endl;
 #endif
+        //vector<int> dist;
 
         outfile<<argv[10]<<" ";
         outfile<<param.prob_loss<<" ";
@@ -1224,7 +1269,19 @@ int main(int argc, char* argv[])
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
+        /*
+        cout<<"Before simplification"<<endl;
+        isite_distribution(graph, dist);
+        print_distribution(dist);
+        cout<<endl;
+        */
         simplify(graph);
+        cout<<"After simplification"<<endl;
+        /*
+        dist.clear();
+        isite_distribution(graph, dist);
+        print_distribution(dist);
+        */
         outfile<<num_edges(graph)<<" ";
         int numTriangles=triangles(graph);
         int numTriples=countTriples(graph);
