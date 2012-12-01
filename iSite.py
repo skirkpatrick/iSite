@@ -24,10 +24,10 @@ for PROBFUSION in [x*.01 for x in range(21)]:
                ',OUTDIR=' + OUTDIR + '.{:.2f}'.format(PROBFUSION) + \
                ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration)
         subprocess.call('qsub -v ' + args + ' iSite.pbs', shell=True)
-user = subprocess.check_output('id -u -n', shell=True).strip()
+user = str(subprocess.check_output('id -u -n', shell=True)).strip()
 num_jobs_cmd = 'qstat | grep ' + user + ' | grep -v \' C \' | wc -l'
 while True:
-    num_jobs = subprocess.check_output(num_jobs_cmd, shell=True).strip()
+    num_jobs = str(subprocess.check_output(num_jobs_cmd, shell=True)).strip()
     if (int(num_jobs) < 100):
         break
     print('Remaining jobs: ' + num_jobs)
