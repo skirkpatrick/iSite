@@ -12,7 +12,7 @@ OUTDIR='results'
 OUTFILE='result'
 #0%-20% inclusive, step by 1%
 for PROBFUSION in [x*.01 for x in range(21)]:
-    for iter in range(100):
+    for iteration in range(100):
         #OUTFILE += '.%.2f' % PROBFUSION
         args = 'SEEDGRAPH=' + SEEDGRAPH +                           \
                ',PROBSUBFUNC=' + PROBSUBFUNC +                      \
@@ -21,13 +21,13 @@ for PROBFUSION in [x*.01 for x in range(21)]:
                ',PROBFUSION=' + '{:.2f}'.format(PROBFUSION) +       \
                ',ENDORDER=' + ENDORDER +                            \
                ',ITERATIONS=' + ITERATIONS +                        \
-               ',OUTDIR=' + OUTDIR + '.{:.2f}'.format(PROBFUSION)   \
-               ',OUTIFLE=' + OUTFILE + '.{:.2d}'.format(iter)
+               ',OUTDIR=' + OUTDIR + '.{:.2f}'.format(PROBFUSION) + \
+               ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration)
         subprocess.call('qsub -v ' + args + 'iSite.pbs', shell=True)
-user = subprocess.call('id -u -n')
+user = subprocess.check_output('id -u -n', shell=True).strip()
 num_jobs_cmd = 'qstat | grep ' + user + ' | grep -v \' C \' | wc -l'
 while True:
-    num_jobs = subprocess.call(num_jobs_cmd, shell=True)
+    num_jobs = subprocess.check_output(num_jobs_cmd, shell=True).strip()
     if (int(num_jobs) < 100):
         break
     print('Remaining jobs: ' + num_jobs)
