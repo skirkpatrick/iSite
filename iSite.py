@@ -23,7 +23,7 @@ for PROBFUSION in [x*.01 for x in range(21)]:
                ',ITERATIONS=' + ITERATIONS +                        \
                ',OUTDIR=' + OUTDIR + '.{:.2f}'.format(PROBFUSION) + \
                ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration)
-        subprocess.call('qsub -v ' + args + 'iSite.pbs', shell=True)
+        subprocess.call('qsub -v ' + args + ' iSite.pbs', shell=True)
 user = subprocess.check_output('id -u -n', shell=True).strip()
 num_jobs_cmd = 'qstat | grep ' + user + ' | grep -v \' C \' | wc -l'
 while True:
