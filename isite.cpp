@@ -326,6 +326,7 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
         {
             isite newSite;
             newSite.age = 0;
+            newSite.homomeric = false;
 
             int siteEdges = vref.sites[i].edges.size();
             for (int j=0; j < siteEdges; j++) //cycle through edges
@@ -337,6 +338,7 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
                 //self loop
                 if (vref.edgeToSite[original_edge] == -1)
                 {
+                    newSite.homomeric = true;
                     ++nSelfLoops;
                     int site1 = vref.selfLoops[original_edge].first;
                     int site2 = vref.selfLoops[original_edge].second;
@@ -370,7 +372,6 @@ Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::
                 }
                 else
                 {
-                
                     Graph::edge_descriptor ed, ed2;
                     bool temp_bool;
                     Graph::vertex_descriptor vd = edgeDest(*it, original_edge, graph);
@@ -466,9 +467,15 @@ void duplication(Graph& graph, vimap& indexmap)
                 Graph::edge_descriptor edgeLoss;
                 edgeLoss = vlref.sites[site].edges[j];
                 double prob_loss;
+                /*
                 if (source(edgeLoss, graph) == target(edgeLoss, graph))
                     prob_loss = param.prob_self;
                 else if (edgeDest(vertexLoss, edgeLoss, graph) == notLost)
+                    prob_loss = param.prob_self;
+                else
+                    prob_loss = param.prob_loss;
+                */
+                if (vlref.sites[site].homomeric)
                     prob_loss = param.prob_self;
                 else
                     prob_loss = param.prob_loss;
@@ -1224,6 +1231,8 @@ int main(int argc, char* argv[])
                 ++nSelfLoops;
                 v1ref.edgeToSite[ed] = -1;
                 v1ref.selfLoops.insert(make_pair(ed, edge_site_indices));
+                //Mark site as homomeric
+                v1ref.sites[edge_site_indices.first].homomeric = true;
             }
             
         }
@@ -1276,8 +1285,8 @@ int main(int argc, char* argv[])
         cout<<endl;
         */
         simplify(graph);
-        cout<<"After simplification"<<endl;
         /*
+        cout<<"After simplification"<<endl;
         dist.clear();
         isite_distribution(graph, dist);
         print_distribution(dist);

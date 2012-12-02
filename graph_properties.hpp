@@ -16,14 +16,15 @@ struct isite
 {
     std::vector<edge_descriptor> edges;
     unsigned int age;
+    bool homomeric;
 
-    isite() : edges(), age(0)
+    isite() : edges(), age(0), homomeric(false)
     {
     }
-    isite(const isite& is) : edges(is.edges), age(is.age)
+    isite(const isite& is) : edges(is.edges), age(is.age), homomeric(is.homomeric)
     {
     }
-    isite(edge_descriptor e, unsigned int a) : age(a)
+    isite(edge_descriptor e, unsigned int a) : age(a), homomeric(false)
     {
         edges.push_back(e);
     }
