@@ -267,6 +267,7 @@ struct parameters
     double prob_asym;
     double prob_self;
     double prob_fusion;
+    double prob_fission;
     unsigned int end_order;
     unsigned int iterations;
     bool printResult;
@@ -288,13 +289,113 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 
 
 /*
+    Performs fission
+
+    VARIABLE NAMES IN DUPLICATION FUNCTION ARE UNINTUITIVE AT THE MOMENT BECAUSE OF THIS
+*/
+Graph::vertex_descriptor fission(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenies)
+{
+    Graph::vertex_descriptor progenitor = rnd->random_vertex(graph);
+    vertexsites& vref = graph[progenitor];
+    progenies.push_back(add_vertex(graph));
+    progenies.push_back(add_vertex(graph));
+    put(indexmap, progenies[0], counter++);
+    put(indexmap, progenies[1], counter++);
+    vertexsites* pgyref = &graph[progenies[0]];
+    Graph::vertex_descriptor progeny = progenies[0];
+
+    //copy edges and isites
+    int numSites = vref.sites.size();
+    for (int i=0, pgysite=0; i < numSites; ++i, ++pgysite)
+    {
+        //Check if time to start on second progeny
+        if (i == numSites/2)
+        {
+            pgyref = &graph[progenies[1]];
+            progeny = progenies[1];
+            pgysite = 0;
+        }
+
+        isite newSite;
+        newSite.age = 0;
+        newSite.homomeric = false;
+
+        int siteEdges = vref.sites[i].edges.size();
+        for (int j=0; j < siteEdges; j++) //cycle through edges
+        {
+            Graph::edge_descriptor original_edge;
+            original_edge = vref.sites[i].edges[j];
+
+            //self loop
+            if (vref.edgeToSite[original_edge] == -1)
+            {
+                newSite.homomeric = true;
+                ++nSelfLoops;
+                int site1 = vref.selfLoops[original_edge].first;
+                int site2 = vref.selfLoops[original_edge].second;
+                //self loop on same node
+                if (site1 == site2)
+                {
+                    Graph::edge_descriptor ed, ed_tie;
+                    bool temp_bool;
+                    //copy self loop
+                    tie(ed, temp_bool) = add_edge(progeny, progeny, graph);
+
+                    //create edge between parent and child
+                    tie(ed_tie, temp_bool) = add_edge(progenitor, progeny, graph);
+                    
+                    //update progeny site
+                    newSite.edges.push_back(ed);
+                    newSite.edges.push_back(ed_tie);
+                    pgyref->edgeToSite[ed] = -1;
+                    pgyref->selfLoops[ed] = make_pair(pgysite, pgysite);
+                    pgyref->edgeToSite[ed_tie] = pgysite;
+
+                    //update progenitor site
+                    vref.sites[i].edges.push_back(ed_tie);
+                    vref.edgeToSite[ed_tie] = i;
+                }
+                //self loop on different nods
+                else
+                {
+                    assert(0==1);
+                }
+            }
+            else
+            {
+                Graph::edge_descriptor ed, ed2;
+                bool temp_bool;
+                Graph::vertex_descriptor vd = edgeDest(progenitor, original_edge, graph);
+                vertexsites& vdref = graph[vd];
+
+                tie(ed, temp_bool) = add_edge(progeny, vd, graph);
+
+                //update child iSite
+                newSite.edges.push_back(ed);
+                pgyref->edgeToSite[ed] = pgysite;
+
+                //update other node's iSite
+                ed2 = vref.sites[i].edges[j];
+                vdref.sites[vdref.edgeToSite[ed2]].edges.push_back(ed);
+                vdref.edgeToSite[ed] = vdref.edgeToSite[ed2];
+            }
+        }
+
+        pgyref->sites.push_back(newSite);
+    }
+
+    return progenitor;
+}
+
+
+/*
     Fuses duplications of two nodes
 */
-Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors)
+Graph::vertex_descriptor duplicate(Graph& graph, vimap& indexmap, vector<Graph::vertex_descriptor>& progenitors, bool fuse)
 {
     progenitors.push_back(rnd->random_vertex(graph));
     //Make 'while' to do arbitrary number of nodes NOT IMPLEMENTED
-    if (rnd->rand() < param.prob_fusion)
+    if (fuse)
     {
         Graph::vertex_descriptor progenitor;
         while ((progenitor=rnd->random_vertex(graph)) == progenitors[0]);
@@ -412,7 +513,13 @@ void duplication(Graph& graph, vimap& indexmap)
     ++nDuplications;
     vector<Graph::vertex_descriptor> progenitors;
     Graph::vertex_descriptor progeny;
-    progeny=duplicate(graph, indexmap, progenitors);
+    double op = rnd->rand();
+    if (op < param.prob_fission)
+        progeny = fission(graph, indexmap, progenitors); //actually progenitor in this case!
+    else if (op < param.prob_fission+param.prob_fusion)
+        progeny = duplicate(graph, indexmap, progenitors, true);
+    else
+        progeny=duplicate(graph, indexmap, progenitors, false);
     vertexsites& pgyref = graph[progeny];
 
     //prob_asym
@@ -546,7 +653,7 @@ void duplication(Graph& graph, vimap& indexmap)
         //If progenitor has no iSites (and therefore no edges), delete it
         if (isolated(progenitors[pr], graph))
         {
-            //clear_vertex(progenitors[pr], graph);
+            clear_vertex(progenitors[pr], graph);
             remove_vertex(progenitors[pr], graph);
         }
     }//cycle through progenitors
@@ -572,7 +679,7 @@ void duplication(Graph& graph, vimap& indexmap)
     //If progeny has no iSites (and therefore no edges), delete it
     if (isolated(progeny, graph))
     {
-        //clear_vertex(progeny, graph);
+        clear_vertex(progeny, graph);
         remove_vertex(progeny, graph);
         --nDuplications;
         return;
@@ -1030,11 +1137,11 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=13)
+    if (argc!=14)
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
-                "<probability of fusion> <end order> <iterations> <output dir> <output file> "
+                "<probability of fusion> <probability of fission> <end order> <iterations> <output dir> <output file> "
                 "<printResult | noPrintResult> <resuling graph file> <PBS job-id>"<<endl;
         exit(1);
     }
@@ -1044,9 +1151,10 @@ int main(int argc, char* argv[])
     param.prob_asym=atof(argv[3]);      //Probability of assymetry
     param.prob_self=atof(argv[4]);      //Probability of homomeric subfunctionalization
     param.prob_fusion=atof(argv[5]);    //Probability of fusion
-    param.end_order=atoi(argv[6]);      //Order at which to stop
-    param.iterations=atoi(argv[7]);     //Number of times to run algorithm
-    param.printResult=strcmp(argv[10], "printResult")==0;
+    param.prob_fission=atof(argv[6]);   //Probability of fission
+    param.end_order=atoi(argv[7]);      //Order at which to stop
+    param.iterations=atoi(argv[8]);     //Number of times to run algorithm
+    param.printResult=strcmp(argv[11], "printResult")==0;
     
 
     //Input validation
@@ -1065,9 +1173,14 @@ int main(int argc, char* argv[])
         cerr<<"Error: Probability of homomeric subfunctionalization must be between 0 and 1"<<endl;
         exit(1);
     }
-    if (param.prob_fusion<0.0 || param.prob_self>1.0)
+    if (param.prob_fusion<0.0 || param.prob_fusion>1.0)
     {
         cerr<<"Error: Probability of fusion must be between 0 and 1"<<endl;
+        exit(1);
+    }
+    if (param.prob_fission<0.0 || param.prob_fission>1.0)
+    {
+        cerr<<"Error: Probability of fission must be between 0 and 1"<<endl;
         exit(1);
     }
     if (param.iterations<0)
@@ -1083,11 +1196,11 @@ int main(int argc, char* argv[])
     rnd = &random;
 
     //Create output directory
-    string outfile_path(argv[9]);
-    if (mkdir(argv[8], 0777) != -1 || errno == EEXIST)
+    string outfile_path(argv[10]);
+    if (mkdir(argv[9], 0777) != -1 || errno == EEXIST)
     {
         outfile_path.insert(0, "/");
-        outfile_path.insert(0, argv[8]);
+        outfile_path.insert(0, argv[9]);
     }
     else
         perror("Unable to create output directory");
@@ -1099,7 +1212,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: "<<outfile_path<<endl;
         exit(1);
     }
-    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents lgComponentOrder lgComponentSize lgComponentTris lgComponentTips lgComponentCC seedgraph" << endl;
+    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb fissionProb actualAsymmetry selfloops order size tris trips CC numComponents lgComponentOrder lgComponentSize lgComponentTris lgComponentTips lgComponentCC seedgraph" << endl;
 
     while (param.iterations--)
     {
@@ -1270,11 +1383,11 @@ int main(int argc, char* argv[])
             stringstream ss;
             ss << iterations-param.iterations;
             ss >> name;
-            name.insert(0, argv[11]);
-            if (mkdir(argv[8], 0777) != -1 || errno == EEXIST)
+            name.insert(0, argv[12]);
+            if (mkdir(argv[9], 0777) != -1 || errno == EEXIST)
             {
                 name.insert(0, "/");
-                name.insert(0, argv[8]);
+                name.insert(0, argv[9]);
             }
             ofstream graphfile(name.c_str());
             if (!graphfile)
@@ -1291,11 +1404,12 @@ int main(int argc, char* argv[])
 #endif
         //vector<int> dist;
 
-        outfile<<argv[12]<<" ";
+        outfile<<argv[13]<<" ";
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
         outfile<<param.prob_fusion<<" ";
+        outfile<<param.prob_fission<<" ";
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
