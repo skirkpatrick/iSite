@@ -27,10 +27,12 @@ using namespace std;
 using namespace boost;
 
 enum output_type {PRINT, NODE_SUMMARY, STATUS, EVOLUTION};
+enum op_type {FISSION, FUSION, DUPLICATION, NONE};
 
 int nSelfLoops=0;
 double asymmetry=0.0;
 int nDuplications=0;
+op_type force_op = NONE;
 
 
 Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
@@ -513,13 +515,16 @@ void duplication(Graph& graph, vimap& indexmap)
     ++nDuplications;
     vector<Graph::vertex_descriptor> progenitors;
     Graph::vertex_descriptor progeny;
-    double op = rnd->rand();
-    if (op < param.prob_fission)
+    double res = rnd->rand();
+    op_type op = res<param.prob_fission ? FISSION : res<param.prob_fission+param.prob_fusion ? FUSION : DUPLICATION;
+    if ((op == FISSION && force_op == NONE) || force_op == FISSION)
         progeny = fission(graph, indexmap, progenitors); //actually progenitor in this case!
-    else if (op < param.prob_fission+param.prob_fusion)
+    else if ((op == FUSION && force_op == NONE) || force_op == FUSION)
         progeny = duplicate(graph, indexmap, progenitors, true);
     else
         progeny=duplicate(graph, indexmap, progenitors, false);
+    force_op = NONE;
+    unsigned int full_subfuncs = 0;
     vertexsites& pgyref = graph[progeny];
 
     //prob_asym
@@ -650,11 +655,12 @@ void duplication(Graph& graph, vimap& indexmap)
                 --numSites;
             }
 */
-        //If progenitor has no iSites (and therefore no edges), delete it
+        //If progenitor is isolated, delete it
         if (isolated(progenitors[pr], graph))
         {
             clear_vertex(progenitors[pr], graph);
             remove_vertex(progenitors[pr], graph);
+            ++full_subfuncs;
         }
     }//cycle through progenitors
 
@@ -676,14 +682,28 @@ void duplication(Graph& graph, vimap& indexmap)
             --size;
         }
 */
-    //If progeny has no iSites (and therefore no edges), delete it
+    //If progeny is isolated, delete it
     if (isolated(progeny, graph))
     {
         clear_vertex(progeny, graph);
         remove_vertex(progeny, graph);
+        
+        //Failure
+        if (op == FUSION || op == DUPLICATION)
+        {
+            force_op = op;
+            --nDuplications;
+            return;
+        }
+    }
+    //Failure
+    else if ((op == DUPLICATION || op == FISSION) && full_subfuncs == progenitors.size())
+    {
+        force_op = op;
         --nDuplications;
         return;
     }
+            
     //Update actual asymmetry
     double thisAsym;
     if (actualAsym.first+actualAsym.second != 0)
