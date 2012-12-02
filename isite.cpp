@@ -269,6 +269,7 @@ struct parameters
     double prob_fusion;
     unsigned int end_order;
     unsigned int iterations;
+    bool printResult;
 } param;
 
 //For vertex index mapping
@@ -923,14 +924,14 @@ void addAge(Graph& graph)
 /*
     Prints graph to standard out
 */
-void printGraph(Graph& graph, vimap& indexmap)
+void printGraph(Graph& graph, vimap& indexmap, ostream& graphfile = cout)
 {
     vertex_iterator vi, viend;
     vector<edge_descriptor> printed_self_loops;
     for (tie(vi,viend) = vertices(graph); vi!=viend; ++vi)
     {
         //Current node
-        cout<<indexmap(*vi)<<":";
+        graphfile<<indexmap(*vi)<<":";
         out_edge_iterator oei, oeiend;
         //All connected nodes
         for (tie(oei,oeiend)=out_edges(*vi,graph); oei!=oeiend; ++oei)
@@ -956,7 +957,7 @@ void printGraph(Graph& graph, vimap& indexmap)
                 {
                     site = vref.selfLoops[*oei].first;
                     int site2 = vref.selfLoops[*oei].second;
-                    cout<<" "<<site<<"->"
+                    graphfile<<" "<<site<<"->"
                         <<site2<<":"
                         <<indexmap(vd);
                     printed_self_loops.push_back(*oei);
@@ -965,13 +966,13 @@ void printGraph(Graph& graph, vimap& indexmap)
             else
             {
                 int connectedSite = graph[vd].edgeToSite[*oei];
-                cout<<" "<<site<<"->"
+                graphfile<<" "<<site<<"->"
                     <<connectedSite<<":"
                     <<indexmap(vd);
             }
         }
         printed_self_loops.clear();
-        cout<<endl;
+        graphfile<<endl;
     }
 }
 
@@ -1029,12 +1030,12 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=11)
+    if (argc!=13)
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
                 "<probability of fusion> <end order> <iterations> <output dir> <output file> "
-                "<PBS job-id>"<<endl;
+                "<printResult | noPrintResult> <resuling graph file> <PBS job-id>"<<endl;
         exit(1);
     }
 
@@ -1045,6 +1046,7 @@ int main(int argc, char* argv[])
     param.prob_fusion=atof(argv[5]);    //Probability of fusion
     param.end_order=atoi(argv[6]);      //Order at which to stop
     param.iterations=atoi(argv[7]);     //Number of times to run algorithm
+    param.printResult=strcmp(argv[10], "printResult")==0;
     
 
     //Input validation
@@ -1262,15 +1264,34 @@ int main(int argc, char* argv[])
         output_info(graph, indexmap, "***End Graph***", PRINT); 
         output_info(graph, indexmap, "***Node Summary***", NODE_SUMMARY); 
 
-        //Uncomment to print resulting graph
-        //printGraph(graph, indexmap);
+        if (param.printResult)
+        {
+            string name;
+            stringstream ss;
+            ss << iterations-param.iterations;
+            ss >> name;
+            name.insert(0, argv[11]);
+            if (mkdir(argv[8], 0777) != -1 || errno == EEXIST)
+            {
+                name.insert(0, "/");
+                name.insert(0, argv[8]);
+            }
+            ofstream graphfile(name.c_str());
+            if (!graphfile)
+                cerr<<"Error opening graph output file"<<endl;
+            else
+            {
+                printGraph(graph, indexmap, graphfile);
+                graphfile.close();
+            }
+        }
 
 #ifdef NDEBUG
         cout<<"Generating results"<<endl;
 #endif
         //vector<int> dist;
 
-        outfile<<argv[10]<<" ";
+        outfile<<argv[12]<<" ";
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
@@ -1316,5 +1337,3 @@ int main(int argc, char* argv[])
     }
     outfile.close();
 }
-
-
