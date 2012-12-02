@@ -1097,7 +1097,7 @@ int main(int argc, char* argv[])
         cerr<<"Error opening output file: "<<outfile_path<<endl;
         exit(1);
     }
-    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents lgComponentOrder lgComponentSize lgComponentTris lgComponentTips lgComponentCC" << endl;
+    outfile << "JOBID subfuncProb asymmetry selfloopLoss fusionProb actualAsymmetry selfloops order size tris trips CC numComponents lgComponentOrder lgComponentSize lgComponentTris lgComponentTips lgComponentCC seedgraph" << endl;
 
     while (param.iterations--)
     {
@@ -1306,7 +1306,8 @@ int main(int argc, char* argv[])
         numTriples = countTriples(lgcomponent);
         outfile<<numTriangles<<" ";
         outfile<<numTriples<<" ";
-        outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples;
+        outfile<<setprecision(6)<<(double)(3*numTriangles)/numTriples<<" ";
+        outfile<<param.infile;
         outfile<<endl;
 
         output_info(graph, indexmap, "***Node Evolution***", EVOLUTION); 
