@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import subprocess
 import time
-SEEDGRAPH='newseed.r100'
+SEEDGRAPH='newseed.r100.83self'
 PROBSUBFUNC='.82'
 PROBASYM='.5'
 PROBHOMO='.539'
