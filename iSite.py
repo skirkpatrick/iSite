@@ -26,7 +26,7 @@ for PROBFUSION in [x*.01 for x in range(21)]:
                    ',PROBFISSON=' + '{:.2f}'.format(PROBFISSION) +      \
                    ',ENDORDER=' + ENDORDER +                            \
                    ',ITERATIONS=' + ITERATIONS +                        \
-                   ',OUTDIR=' + OUTDIR + '.{:.2f}'.format(PROBFUSION) + \
+                   ',OUTDIR=' + OUTDIR + '.{:.2f}.{:.2f}'.format(PROBFUSION, PROBFISSION) + \
                    ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration) +  \
                    ',PRINTRESULTS=' + PRINTRESULTS +                    \
                    ',GRAPHFILE=' + GRAPHFILE +                          \
