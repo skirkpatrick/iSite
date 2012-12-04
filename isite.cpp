@@ -291,6 +291,38 @@ Graph::vertex_descriptor edgeDest(const Graph::vertex_descriptor vd,
 
 
 /*
+    Safely removes a node from the graph
+*/
+void remove_node(Graph& graph, Graph::vertex_descriptor& vd)
+{
+    graph_traits<Graph>::out_edge_iterator ei, eiend;
+    for (tie(ei, eiend) = out_edges(vd, graph); ei != eiend; ++ei)
+    {
+        if (source(*ei, graph) != target(*ei, graph))
+        {
+            //Update connected vertex
+            Graph::vertex_descriptor connectedVertex;
+            connectedVertex = edgeDest(vd, *ei, graph);
+            vertexsites& cvref = graph[connectedVertex];
+            int connectedSite = cvref.edgeToSite[*ei];
+            int connectedSiteSize = cvref.sites[connectedSite].edges.size();
+            int k;
+            for (k = 0; k < connectedSiteSize; ++k)
+            {
+                if (cvref.sites[connectedSite].edges[k]==*ei)
+                    break;
+            }
+            cvref.edgeToSite.erase(*ei);
+            cvref.sites[connectedSite].edges.erase(
+                cvref.sites[connectedSite].edges.begin()+k);
+        }
+    }
+    clear_vertex(vd, graph);
+    remove_vertex(vd, graph);
+}
+
+
+/*
     Performs fission
 
     VARIABLE NAMES IN DUPLICATION FUNCTION ARE UNINTUITIVE AT THE MOMENT BECAUSE OF THIS
@@ -518,9 +550,18 @@ void duplication(Graph& graph, vimap& indexmap)
     double res = rnd->rand();
     op_type op = res<param.prob_fission ? FISSION : res<param.prob_fission+param.prob_fusion ? FUSION : DUPLICATION;
     if ((op == FISSION && force_op == NONE) || force_op == FISSION)
+    {
         progeny = fission(graph, indexmap, progenitors); //actually progenitor in this case!
+        remove_node(graph, progeny);
+        return;
+    }
     else if ((op == FUSION && force_op == NONE) || force_op == FUSION)
+    {
         progeny = duplicate(graph, indexmap, progenitors, true);
+        remove_node(graph, progenitors[0]);
+        remove_node(graph, progenitors[1]);
+        return;
+    }
     else
         progeny=duplicate(graph, indexmap, progenitors, false);
     force_op = NONE;
@@ -689,17 +730,14 @@ void duplication(Graph& graph, vimap& indexmap)
         remove_vertex(progeny, graph);
         
         //Failure
-        if (op == FUSION || op == DUPLICATION)
-        {
-            force_op = op;
-            --nDuplications;
-            return;
-        }
+        force_op = DUPLICATION;
+        --nDuplications;
+        return;
     }
     //Failure
-    else if ((op == DUPLICATION || op == FISSION) && full_subfuncs == progenitors.size())
+    else if (full_subfuncs == progenitors.size())
     {
-        force_op = op;
+        force_op = DUPLICATION;
         --nDuplications;
         return;
     }
