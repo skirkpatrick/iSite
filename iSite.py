@@ -7,7 +7,7 @@ PROBASYM='.5'
 PROBHOMO='.539'
 ENDORDER='2647'
 #Number of iterations for single program instance
-ITERATIONS='1000'
+ITERATIONS='100'
 OUTDIR='results'
 OUTFILE='result'
 PRINTRESULTS='noPrintResult'
