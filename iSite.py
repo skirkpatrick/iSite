@@ -12,23 +12,25 @@ OUTDIR='results'
 OUTFILE='result'
 PRINTRESULTS='noPrintResult'
 GRAPHFILE='g'
+DISTFILE='dist'
 SRCDIR='/home/skirkpatrick/workspace/iSite'
 iteration=1
 #0%-20% inclusive, step by 1%
-for PROBFUSION in [x*.01 for x in range(8, 15)]:
-    for PROBFISSION in [y*.001 for y in range(21)]:
+for PROBFUSION in [x*.01 for x in range(4, 15)]:
+    for PROBFISSION in [y*.01 for y in range(11)]:
         args = 'SEEDGRAPH=' + SEEDGRAPH +                           \
                ',PROBSUBFUNC=' + PROBSUBFUNC +                      \
                ',PROBASYM=' + PROBASYM +                            \
                ',PROBHOMO=' + PROBHOMO +                            \
                ',PROBFUSION=' + '{:.2f}'.format(PROBFUSION) +       \
-               ',PROBFISSION=' + '{:.3f}'.format(PROBFISSION) +      \
+               ',PROBFISSION=' + '{:.3f}'.format(PROBFISSION) +     \
                ',ENDORDER=' + ENDORDER +                            \
                ',ITERATIONS=' + ITERATIONS +                        \
                ',OUTDIR=' + OUTDIR + '.{:.2f}.{:.3f}'.format(PROBFUSION, PROBFISSION) + \
                ',OUTFILE=' + OUTFILE + '.{:d}'.format(iteration) +  \
                ',PRINTRESULTS=' + PRINTRESULTS +                    \
                ',GRAPHFILE=' + GRAPHFILE +                          \
+               ',DISTFILE=' + DISTFILE +                            \
                ',SRCDIR=' + SRCDIR
         subprocess.call('qsub -v ' + args + ' iSite.pbs', shell=True)
 user = subprocess.check_output('id -u -n', shell=True).decode().strip()
