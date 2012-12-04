@@ -89,10 +89,10 @@ void isite_distribution(Graph& graph, vector<int>& vmap)
 /*
     Prints iSite distribution
 */
-void print_distribution(vector<int>& vmap)
+void print_distribution(vector<int>& vmap, ostream& outfile)
 {
     for (int i=0; i<vmap.size(); ++i)
-        cout<<i<<": "<<vmap[i]<<endl;
+        outfile<<i<<": "<<vmap[i]<<endl;
 }
 
 
@@ -1195,12 +1195,12 @@ void output_info(Graph& graph, vimap& indexmap, const string& label, output_type
 
 int main(int argc, char* argv[])
 {
-    if (argc!=14)
+    if (argc!=15)
     {
         cerr<<"Usage: ./iSite <seed-graph> <probability of subfunctionalization> "
                 "<probability of assymetry> <probability of homomeric subfunctionalization> "
                 "<probability of fusion> <probability of fission> <end order> <iterations> <output dir> <output file> "
-                "<printResult | noPrintResult> <resuling graph file> <PBS job-id>"<<endl;
+                "<printResult | noPrintResult> <resuling graph file> <domain distribution file> <PBS job-id>"<<endl;
         exit(1);
     }
 
@@ -1457,12 +1457,26 @@ int main(int argc, char* argv[])
             }
         }
 
+        string name;
+        stringstream ss;
+        ss << iterations-param.iterations;
+        ss >> name;
+        name.insert(0, argv[13]);
+        if (mkdir(argv[9], 0777) != -1 || errno == EEXIST)
+        {
+            name.insert(0, "/");
+            name.insert(0, argv[9]);
+        }
+        ofstream distfile(name.c_str());
+        if (!distfile)
+            cerr<<"Error opening graph output file"<<endl;
+
 #ifdef NDEBUG
         cout<<"Generating results"<<endl;
 #endif
-        //vector<int> dist;
+        vector<int> dist;
 
-        outfile<<argv[13]<<" ";
+        outfile<<argv[14]<<" ";
         outfile<<param.prob_loss<<" ";
         outfile<<param.prob_asym<<" ";
         outfile<<param.prob_self<<" ";
@@ -1471,19 +1485,15 @@ int main(int argc, char* argv[])
         outfile<<setprecision(3)<<asymmetry<<" ";
         outfile<<nSelfLoops<<" ";
         outfile<<num_vertices(graph)<<" ";
-        /*
-        cout<<"Before simplification"<<endl;
+        distfile<<"Before simplification"<<endl;
         isite_distribution(graph, dist);
-        print_distribution(dist);
-        cout<<endl;
-        */
+        print_distribution(dist, distfile);
+        distfile<<endl;
         simplify(graph);
-        /*
-        cout<<"After simplification"<<endl;
+        distfile<<"After simplification"<<endl;
         dist.clear();
         isite_distribution(graph, dist);
-        print_distribution(dist);
-        */
+        print_distribution(dist, distfile);
         outfile<<num_edges(graph)<<" ";
         int numTriangles=triangles(graph);
         int numTriples=countTriples(graph);
@@ -1506,6 +1516,7 @@ int main(int argc, char* argv[])
         output_info(graph, indexmap, "***Node Evolution***", EVOLUTION); 
 
         infile.close();
+        distfile.close();
     }
     outfile.close();
 }
