@@ -1,0 +1,6 @@
+ProtA site1:site1 ProtA
+ProtB site1:site1 ProtB
+ProtC site1:site1 ProtC
+ProtA site2:site3 ProtB
+ProtB site2:site3 ProtC
+ProtC site2:site3 ProtA
