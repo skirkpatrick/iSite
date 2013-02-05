@@ -8,6 +8,7 @@ All files should be copied into the same directory as the iSite executable.
 
 ##Collecting Data
 I can't guarantee that changing any parameters in these files won't break anything. Meddle at your own risk (Or make them more generic and submit a pull request!).
+
 1. average.rb
     Averages a single parameter set's runs and places the averages in a single file.
 2. average\_dist.rb
