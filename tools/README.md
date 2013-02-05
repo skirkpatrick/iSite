@@ -5,6 +5,7 @@ All files should be copied into the same directory as the iSite executable.
     Customize PBS directives for your machine.
 2. iSite.py
     Customize parameters then run this file to begin queueing jobs.
+
 ##Collecting Data
 I can't guarantee that changing any parameters in these files won't break anything. Meddle at your own risk (Or make them more generic and submit a pull request!).
 1. average.rb
